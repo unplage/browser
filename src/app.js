@@ -9,7 +9,6 @@ const state = {
   currentMessages: [],
   abortController: null,
   hideAll: false,
-  chatBackToModuleId: null,
 };
 
 (async function init() {
@@ -125,14 +124,17 @@ async function loadAndShowChat(id) {
   state.currentMessages = chat ? chat.messages : [];
 
   ui.showChat(mod, state.currentMessages, {
-    onSend: (text, useWeb) => handleSend(mod, text, useWeb),
+    onSend: (text, useWeb) => handleSend(text, useWeb),
     onBack: handleChatBack,
     onMenu: () => onModuleEdit(id),
     onClearChat: () => handleClearChat(id),
   });
 }
 
-async function handleSend(mod, text, useWeb) {
+async function handleSend(text, useWeb) {
+  const mod = state.modules.find(m => m.id === state.currentModuleId);
+  if (!mod) return;
+
   if (state.abortController) {
     state.abortController.abort();
   }
@@ -163,12 +165,13 @@ async function handleSend(mod, text, useWeb) {
 
 async function handleClearChat(moduleId) {
   if (!confirm('确认清空此模块的对话记录？')) return;
+  await db.saveChatHistory(moduleId, state.currentMessages);
   state.currentMessages = [];
   await db.saveChatHistory(moduleId, []);
   const mod = state.modules.find(m => m.id === moduleId);
   if (mod) {
     ui.showChat(mod, state.currentMessages, {
-      onSend: (text, useWeb) => handleSend(mod, text, useWeb),
+      onSend: (text, useWeb) => handleSend(text, useWeb),
       onBack: handleChatBack,
       onMenu: () => onModuleEdit(moduleId),
       onClearChat: () => handleClearChat(moduleId),

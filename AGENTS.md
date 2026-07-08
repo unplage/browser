@@ -40,7 +40,7 @@ Pure HTML/CSS/JS PWA — no build step. All data in IndexedDB via Dexie.js (CDN)
 
 ## Service Worker
 
-Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v9` (in `sw.js:1`) — **bump on static asset changes**.
+Dynamic `sw.js` — computes `BASE_PATH` from its own URL (supports sub-path deployment). Cache name: `pwa-cache---v2` (auto-generated from path). Navigation requests (HTML): **network-first**, fallback to cache. Static resources (`.js`, `.css`, `.png`, etc.): **cache-first**. Cache version is in `sw.js:9` — **bump the `v2` suffix on static asset changes**.
 
 ## File analysis
 

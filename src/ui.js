@@ -189,7 +189,6 @@ export function appendMessage(role, content, streaming = false) {
 export function updateStreamingMessage(msgEl, fullContent) {
   const bubble = msgEl.querySelector('.msg-bubble');
   if (bubble) bubble.innerHTML = renderMarkdown(fullContent);
-  msgEl.classList.remove('thinking');
 }
 
 export function stopStreaming(msgEl) {
@@ -434,6 +433,8 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
       renderFiles();
     } catch (err) {
       $('searchResultContent').innerHTML = `<div style="color:var(--danger);padding:20px">分析失败: ${escapeHtml(err.message)}</div>`;
+      $('searchBtn').classList.remove('loading');
+      $('searchBtn').textContent = '搜索';
     }
   }
 }

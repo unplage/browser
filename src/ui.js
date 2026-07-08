@@ -3,7 +3,6 @@ export function $(id) { return document.getElementById(id); }
 export function renderMarkdown(text) {
   let html = text
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/^#### (.+)$/gm, '<h4>$1</h4>')
     .replace(/^### (.+)$/gm, '<h3>$1</h3>')
     .replace(/^## (.+)$/gm, '<h2>$1</h2>')
     .replace(/^# (.+)$/gm, '<h1>$1</h1>')
@@ -14,8 +13,7 @@ export function renderMarkdown(text) {
   html = html.split(/\n\n+/).map(b => {
     const t = b.trim();
     if (!t) return '';
-    if (/^<h[1-4]/.test(t) || /^<hr/.test(t) || /^<ul/.test(t)) return t;
-    if (/^<li>/.test(t)) return `<ul>${t}</ul>`;
+    if (/^<h[1-4]/.test(t) || /^<hr/.test(t)) return t;
     return `<p>${t.replace(/\n/g, '<br>')}</p>`;
   }).join('\n');
   return html;
@@ -34,19 +32,19 @@ export function renderSidebar(modules, activeId, onModuleClick) {
   modules.forEach(m => {
     const item = document.createElement('div');
     item.className = `nav-item${m.id === activeId ? ' active' : ''}`;
-    item.innerHTML = `<span class="icon">${m.icon}</span><span class="title">${m.title}</span>`;
+    item.innerHTML = `<span class="icon">${m.icon}</span><span class="title">${escapeHtml(m.title)}</span>`;
     item.addEventListener('click', () => onModuleClick(m.id));
     nav.appendChild(item);
   });
 }
 
 /* ─── Grid ─── */
-let gridCallbacks = {};
-
 export function renderGrid(modules, callbacks) {
-  gridCallbacks = callbacks;
   const grid = $('gridView');
-  grid.innerHTML = '<div class="grid-view-title">🧩 模块工作室 — 点击打开，拖拽排序</div>';
+  grid.innerHTML = `<div class="grid-view-title">
+    <span>🧩 模块工作室</span>
+    <button class="btn-create" id="gridCreateBtn">➕ 创建模块</button>
+  </div>`;
   modules.filter(m => m.enabled).forEach(m => {
     const card = document.createElement('div');
     card.className = 'module-card';
@@ -54,12 +52,13 @@ export function renderGrid(modules, callbacks) {
     card.innerHTML = `
       <div class="module-card-header">
         <span class="icon">${m.icon}</span>
-        <span class="title">${m.title}</span>
+        <span class="title">${escapeHtml(m.title)}</span>
       </div>
-      <div class="module-card-preview">${m.systemPrompt.slice(0, 80)}…</div>
+      <div class="module-card-preview">${escapeHtml(m.systemPrompt.slice(0, 80))}…</div>
       <div class="module-card-actions">
         <button class="edit-btn" data-action="edit">✏️ 编辑</button>
-        <button data-action="disable">${m.enabled ? '🔇' : '🔊'}</button>
+        <button class="toggle-btn" data-action="disable">${m.enabled ? '🔇' : '🔊'}</button>
+        <button class="del-btn" data-action="delete">🗑️</button>
       </div>`;
     card.addEventListener('click', e => {
       if (e.target.closest('.module-card-actions')) return;
@@ -73,15 +72,23 @@ export function renderGrid(modules, callbacks) {
       e.stopPropagation();
       callbacks.onToggle(m.id);
     });
+    card.querySelector('[data-action="delete"]').addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm(`确认删除模块「${m.title}」？此操作不可恢复。`)) {
+        callbacks.onDelete(m.id);
+      }
+    });
     grid.appendChild(card);
   });
+
+  $('gridCreateBtn').onclick = () => callbacks.onCreate();
 
   if (window.Sortable) {
     Sortable.create(grid, {
       animation: 200,
       handle: '.module-card',
       ghostClass: 'sortable-ghost',
-      filter: '.grid-view-title',
+      filter: '.grid-view-title, #gridCreateBtn',
       onEnd: e => {
         const ids = [...grid.querySelectorAll('.module-card')].map(c => c.dataset.id);
         callbacks.onReorder(ids);
@@ -90,8 +97,8 @@ export function renderGrid(modules, callbacks) {
   }
 }
 
-export function updateModuleCount(count) {
-  $('moduleCount').textContent = `模块: ${count}/12`;
+export function updateModuleCount(count, defaultCount = 12) {
+  $('moduleCount').textContent = `模块: ${count}/${defaultCount}`;
 }
 
 /* ─── Chat ─── */
@@ -100,12 +107,12 @@ let currentChatModule = null;
 export function showChat(module, messages, callbacks = {}) {
   currentChatModule = module;
   showView('chatView');
-  $('chatTitle').textContent = `${module.icon} ${module.title}`;
+  $('chatTitle').textContent = `${module.icon} ${escapeHtml(module.title)}`;
   const container = $('chatMessages');
   container.innerHTML = '';
 
   if (!messages || messages.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="icon">${module.icon}</div><div class="text">开始与「${module.title}」对话</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="icon">${module.icon}</div><div class="text">开始与「${escapeHtml(module.title)}」对话</div></div>`;
   } else {
     messages.forEach(msg => appendMessage(msg.role, msg.content));
   }
@@ -177,11 +184,12 @@ export function showSearchResult(query, content) {
   saveBtn.style.display = '';
   saveBtn._query = query;
   saveBtn._content = content;
+  saveBtn._resultText = $('searchResultContent').innerText;
 }
 
 export function getSavedSearchData() {
   const btn = $('saveSearchBtn');
-  return { query: btn._query, content: btn._content, result: $('searchResultContent').innerText };
+  return { query: btn._query, content: btn._content, result: btn._resultText || $('searchResultContent').innerText };
 }
 
 /* ─── Modals ─── */
@@ -212,12 +220,10 @@ export function showSettingsPanel(apiKey, onSave) {
     <label>智谱 API Key
       <small style="color:var(--text-tertiary);font-weight:400"> — 从 <a href="https://open.bigmodel.cn" target="_blank" style="color:var(--accent)">bigmodel.cn</a> 获取</small>
     </label>
-    <input type="password" id="apiKeyInput" value="${apiKey || ''}" placeholder="输入你的 GLM API Key">
+    <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 GLM API Key">
     <div class="hint">API Key 仅保存在本地浏览器 IndexedDB 中，每次请求直接发送至 open.bigmodel.cn</div>`;
   const footer = document.createElement('div');
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '保存';
-  saveBtn.style.cssText = 'padding:8px 20px;background:var(--accent);color:#fff;border-radius:16px;font-size:13px;';
+  const saveBtn = mkPrimaryBtn('保存');
   footer.appendChild(saveBtn);
   const modal = showModal('⚙️ 设置', form, footer);
   saveBtn.onclick = async () => {
@@ -232,7 +238,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
   const container = document.createElement('div');
   renderBookmarks(container, bookmarks, callbacks);
   const footer = document.createElement('div');
-  footer.style.cssText = 'display:flex;gap:8px;';
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const addBtn = mkBtn('➕ 添加');
   const importBtn = mkBtn('📥 导入 HTML');
   const exportBtn = mkBtn('📤 导出 JSON');
@@ -253,7 +259,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
   importBtn.onclick = () => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.html';
+    input.accept = '.html,.htm';
     input.onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
@@ -266,7 +272,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
           await callbacks.onAdd({ url: a.href, title: a.textContent || a.href, tags: '' });
         }
       }
-      const updated = await callbacks.onRefresh ? await callbacks.onRefresh() : bookmarks;
+      const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
       renderBookmarks(container, updated, callbacks);
     };
     input.click();
@@ -299,19 +305,21 @@ function renderBookmarks(container, bookmarks, callbacks) {
   bookmarks.forEach(b => {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
-    const favicon = b.url ? `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32` : '';
+    const favicon = (b.url && b.url.startsWith('http')) ? `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32` : '';
     item.innerHTML = `
-      <span class="favicon">${favicon ? `<img src="${favicon}" width="16" height="16" onerror="this.style.display='none'">` : '📌'}</span>
+      <span class="favicon">${favicon ? `<img src="${favicon}" width="16" height="16" onerror="this.style.display='none'" style="border-radius:2px">` : '📌'}</span>
       <div class="info">
-        <div>${escapeHtml(b.title)}</div>
+        <div class="title">${escapeHtml(b.title)}</div>
         <div class="url">${escapeHtml(b.url || '本地记录')}</div>
       </div>
       <button class="del-btn" data-id="${b.id}">✕</button>`;
-    item.querySelector('.del-btn').onclick = async () => {
+    item.querySelector('.del-btn').onclick = async e => {
+      e.stopPropagation();
+      if (!confirm('确认删除此书签？')) return;
       const updated = await callbacks.onDelete(b.id);
       renderBookmarks(container, updated, callbacks);
     };
-    if (b.url) {
+    if (b.url && b.url.startsWith('http')) {
       item.style.cursor = 'pointer';
       item.onclick = e => {
         if (e.target.closest('.del-btn')) return;
@@ -330,7 +338,7 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
     <div class="upload-zone" id="uploadZone">
       <span class="icon">📄</span>
       <span class="text">点击或拖拽文件到这里上传分析</span>
-      <div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">支持 .txt .md .json .csv .js .py .html</div>
+      <div style="font-size:11px;color:var(--text-tertiary);margin-top:6px">支持 .txt .md .json .csv .js .py .html</div>
     </div>
     <div class="file-list" id="fileList"></div>`;
   const modal = showModal('📎 文件分析', container);
@@ -339,22 +347,21 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
 
   function renderFiles() {
     fileList.innerHTML = '';
+    if (savedFiles.length === 0) return;
     savedFiles.forEach(f => {
       const item = document.createElement('div');
       item.className = 'file-item';
       item.innerHTML = `
         <span>📄</span>
         <span class="name">${escapeHtml(f.fileName)}</span>
-        <span style="font-size:11px;color:var(--text-tertiary)">${new Date(f.createdAt).toLocaleDateString()}</span>
+        <span style="font-size:11px;color:var(--text-tertiary);flex-shrink:0">${new Date(f.createdAt).toLocaleDateString()}</span>
         <button class="del-btn" data-id="${f.id}">✕</button>`;
-      item.querySelector('.del-btn').onclick = () => onDelete(f.id);
+      item.querySelector('.del-btn').onclick = e => { e.stopPropagation(); onDelete(f.id).then(() => renderFiles()); };
       item.onclick = e => {
         if (e.target.closest('.del-btn')) return;
-        showModal('📄 ' + f.fileName, (() => {
-          const d = document.createElement('div');
-          d.innerHTML = renderMarkdown(f.analysis || f.content);
-          return d;
-        })());
+        const d = document.createElement('div');
+        d.innerHTML = renderMarkdown(f.analysis || f.content);
+        showModal('📄 ' + escapeHtml(f.fileName), d);
       };
       fileList.appendChild(item);
     });
@@ -378,7 +385,8 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
   fileInput.onchange = () => { if (fileInput.files.length) handleFile(fileInput.files[0]); };
 
   async function handleFile(file) {
-    const text = await file.text();
+    let text;
+    try { text = await file.text(); } catch { alert('无法读取文件'); return; }
     showSearchLoading();
     $('searchViewTitle').textContent = `分析中: ${file.name}`;
     try {
@@ -389,7 +397,7 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
       $('saveSearchBtn').style.display = 'none';
       renderFiles();
     } catch (err) {
-      $('searchResultContent').innerHTML = `<div style="color:var(--danger)">分析失败: ${escapeHtml(err.message)}</div>`;
+      $('searchResultContent').innerHTML = `<div style="color:var(--danger);padding:20px">分析失败: ${escapeHtml(err.message)}</div>`;
     }
   }
 }
@@ -398,39 +406,72 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
 export function showModuleEditor(module, onSave) {
   const form = document.createElement('div');
   form.className = 'module-editor';
+  const isCustom = !isDefaultModule(module.id);
   form.innerHTML = `
     <label>模块名称</label>
     <input type="text" id="modTitle" value="${escapeHtml(module.title)}">
     <label>图标 (Emoji)</label>
-    <input type="text" id="modIcon" value="${module.icon}" style="width:60px">
+    <input type="text" id="modIcon" value="${module.icon}" style="width:70px">
     <label>系统提示词 (System Prompt)</label>
     <textarea id="modPrompt">${escapeHtml(module.systemPrompt)}</textarea>
-    <button class="reset-btn">↺ 恢复默认提示词</button>`;
+    ${isCustom ? '' : '<button class="reset-btn">↺ 恢复默认提示词</button>'}`;
   const footer = document.createElement('div');
-  const saveBtn = document.createElement('button');
-  saveBtn.textContent = '保存';
-  saveBtn.style.cssText = 'padding:8px 20px;background:var(--accent);color:#fff;border-radius:16px;font-size:13px;';
+  const saveBtn = mkPrimaryBtn('保存');
   footer.appendChild(saveBtn);
-  const modal = showModal(`✏️ 编辑模块: ${module.title}`, form, footer);
+  const modal = showModal(`✏️ 编辑模块: ${escapeHtml(module.title)}`, form, footer);
 
-  form.querySelector('.reset-btn').onclick = async () => {
-    const { getDefaultPrompt } = await import('./modules.js');
-    $('modPrompt').value = getDefaultPrompt(module.id);
-  };
+  if (!isCustom) {
+    form.querySelector('.reset-btn').onclick = async () => {
+      const { getDefaultPrompt } = await import('./modules.js');
+      $('modPrompt').value = getDefaultPrompt(module.id);
+    };
+  }
   saveBtn.onclick = async () => {
     await onSave(module.id, {
-      title: $('modTitle').value,
-      icon: $('modIcon').value,
-      systemPrompt: $('modPrompt').value,
+      title: $('modTitle').value.trim(),
+      icon: $('modIcon').value.trim(),
+      systemPrompt: $('modPrompt').value.trim(),
     });
     modal.close();
   };
 }
 
+/* ─── Create Module ─── */
+export function showCreateModule(onCreate) {
+  const form = document.createElement('div');
+  form.className = 'module-editor';
+  form.innerHTML = `
+    <label>模块名称</label>
+    <input type="text" id="newModTitle" placeholder="例如：AI 绘画助手" autofocus>
+    <label>图标 (Emoji)</label>
+    <input type="text" id="newModIcon" value="🤖" style="width:70px">
+    <label>系统提示词 (System Prompt)</label>
+    <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;
+  const footer = document.createElement('div');
+  const createBtn = mkPrimaryBtn('✨ 创建模块');
+  footer.appendChild(createBtn);
+  const modal = showModal('➕ 创建自定义模块', form, footer);
+
+  createBtn.onclick = async () => {
+    const title = $('newModTitle').value.trim();
+    const icon = $('newModIcon').value.trim() || '🤖';
+    const prompt = $('newModPrompt').value.trim();
+    if (!title) { alert('请输入模块名称'); $('newModTitle').focus(); return; }
+    if (!prompt) { alert('请输入系统提示词'); $('newModPrompt').focus(); return; }
+    await onCreate(title, icon, prompt);
+    modal.close();
+  };
+}
+
+function isDefaultModule(id) {
+  const defaults = ['poetry','drug','english','reading','programming','leisure','baby','philosophy','tech','news','finance','futures'];
+  return defaults.includes(id);
+}
+
 /* ─── Saved Search Results ─── */
 export function showSavedResults(results, onDelete) {
   const container = document.createElement('div');
-  container.style.cssText = 'display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto;';
+  container.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;';
   if (results.length === 0) {
     container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无保存的搜索结果</div></div>';
   } else {
@@ -438,18 +479,22 @@ export function showSavedResults(results, onDelete) {
       const item = document.createElement('div');
       item.className = 'saved-result-item';
       item.innerHTML = `
-        <button class="del-btn" data-id="${r.id}">✕</button>
+        <div class="meta">${new Date(r.savedAt).toLocaleString('zh-CN')}</div>
         <div class="query">🔍 ${escapeHtml(r.query)}</div>
-        <div class="meta">${new Date(r.savedAt).toLocaleString('zh-CN')}</div>`;
+        <button class="del-btn" data-id="${r.id}">✕</button>`;
       item.querySelector('.del-btn').onclick = async e => {
         e.stopPropagation();
         await onDelete(r.id);
         item.remove();
+        if (container.querySelectorAll('.saved-result-item').length === 0) {
+          container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无保存的搜索结果</div></div>';
+        }
       };
-      item.onclick = () => {
+      item.addEventListener('click', e => {
+        if (e.target.closest('.del-btn')) return;
         showSearchResult(r.query, r.result || r.content);
         $('saveSearchBtn').style.display = 'none';
-      };
+      });
       container.appendChild(item);
     });
   }
@@ -466,6 +511,15 @@ function escapeHtml(s) {
 function mkBtn(text) {
   const b = document.createElement('button');
   b.textContent = text;
-  b.style.cssText = 'padding:6px 14px;border-radius:16px;font-size:12px;border:1px solid var(--border);transition:var(--transition);';
+  b.style.cssText = 'padding:7px 16px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border);transition:var(--transition);background:var(--surface);';
+  return b;
+}
+
+function mkPrimaryBtn(text) {
+  const b = document.createElement('button');
+  b.textContent = text;
+  b.style.cssText = 'padding:9px 22px;background:var(--accent-gradient);color:#fff;border-radius:20px;font-size:13px;font-weight:600;transition:var(--transition);box-shadow:0 2px 8px rgba(37,99,235,0.2);';
+  b.onmouseenter = () => { b.style.transform = 'translateY(-1px)'; b.style.boxShadow = '0 4px 14px rgba(37,99,235,0.3)'; };
+  b.onmouseleave = () => { b.style.transform = ''; b.style.boxShadow = '0 2px 8px rgba(37,99,235,0.2)'; };
   return b;
 }

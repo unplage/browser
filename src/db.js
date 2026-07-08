@@ -22,6 +22,10 @@ export async function saveModules(mods) {
   await db.modules.bulkPut(mods);
 }
 
+export async function deleteModule(id) {
+  await db.modules.delete(id);
+}
+
 export async function getLayout() {
   return await db.layout.get('main') || { cols: 3, moduleOrder: [] };
 }

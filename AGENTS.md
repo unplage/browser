@@ -21,7 +21,7 @@ Pure HTML/CSS/JS PWA — no build step. All data stored in browser IndexedDB via
 | `sw.js` | Service worker — cache-first for static assets |
 | `src/app.js` | Coordinator: init, event binding, state machine |
 | `src/ui.js` | All DOM rendering: sidebar, grid, chat, modals, bookmarks, file upload |
-| `src/db.js` | Dexie wrapper — 6 tables (modules, bookmarks, searchResults, chatHistory, files, settings) |
+| `src/db.js` | Dexie wrapper — 7 tables (modules, bookmarks, searchResults, chatHistory, files, settings, layout) |
 | `src/api.js` | GLM-4 API: streaming SSE, web_search, file analysis |
 | `src/modules.js` | 12 module definitions with system prompts, layout persistence |
 | `src/styles.css` | Minimalist design — CSS variables, system font, macOS aesthetic |
@@ -47,11 +47,13 @@ Pure HTML/CSS/JS PWA — no build step. All data stored in browser IndexedDB via
 
 ## Module system
 
-12 modules in `src/modules.js`. Each has `{ id, title, icon, systemPrompt, enabled, position }`. Users can:
+12 default modules + custom modules in `src/modules.js`. Each has `{ id, title, icon, systemPrompt, enabled, position }`. Users can:
 - Edit prompts via UI (saved to IndexedDB)
+- Create custom modules with unique name, icon, and system prompt
+- Delete custom modules (default modules protected)
 - Drag to reorder (SortableJS)
 - Enable/disable
-- Reset to default prompts
+- Reset default module prompts to original
 
 All modules share the same `ChatPanel` component — only the systemPrompt differs.
 

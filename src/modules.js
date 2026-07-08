@@ -1,4 +1,4 @@
-import { getModules, saveModule, saveModules } from './db.js';
+import { getModules, saveModule, saveModules, deleteModule as dbDeleteModule } from './db.js';
 
 const DEFAULT_MODULES = [
   {
@@ -156,6 +156,38 @@ export function getDefaultPrompt(moduleId) {
 
 export function invalidateCache() {
   modulesCache = null;
+}
+
+export function isDefaultModule(id) {
+  return DEFAULT_MODULES.some(m => m.id === id);
+}
+
+let customIdCounter = 0;
+
+export async function createModule(title, icon, systemPrompt) {
+  const existing = await getModules();
+  const customIds = existing.filter(m => m.id.startsWith('custom_')).map(m => {
+    const n = parseInt(m.id.replace('custom_', ''), 10);
+    return isNaN(n) ? 0 : n;
+  });
+  const nextId = customIds.length > 0 ? Math.max(...customIds) + 1 : 1;
+  const id = `custom_${nextId}`;
+  const pos = existing.length;
+  const mod = { id, title, icon, systemPrompt, enabled: true, position: pos };
+  await saveModule(mod);
+  if (modulesCache) {
+    modulesCache.push(mod);
+    modulesCache.sort((a, b) => a.position - b.position);
+  }
+  return mod;
+}
+
+export async function deleteModule(id) {
+  if (isDefaultModule(id)) throw new Error('不能删除默认模块');
+  await dbDeleteModule(id);
+  if (modulesCache) {
+    modulesCache = modulesCache.filter(m => m.id !== id);
+  }
 }
 
 export const MODULE_IDS = DEFAULT_MODULES.map(m => m.id);

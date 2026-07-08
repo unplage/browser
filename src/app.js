@@ -17,7 +17,8 @@ const state = {
     state.modules = [];
   }
 
-  ui.updateModuleCount(state.modules.length);
+  const DEFAULT_COUNT = 12;
+  ui.updateModuleCount(state.modules.length, DEFAULT_COUNT);
   renderAll();
 
   if ('serviceWorker' in navigator) {
@@ -35,6 +36,8 @@ function renderAll() {
     onEdit: onModuleEdit,
     onToggle: onModuleToggle,
     onReorder: onModuleReorder,
+    onCreate: onModuleCreate,
+    onDelete: onModuleDelete,
   });
   if (state.currentModuleId && active) {
     loadAndShowChat(active.id);
@@ -57,6 +60,8 @@ function bindGlobalEvents() {
   ui.$('savedResultsBtn').addEventListener('click', openSavedResults);
   ui.$('uploadBtn').addEventListener('click', openFileUpload);
   ui.$('settingsBtn').addEventListener('click', openSettings);
+
+  ui.$('createModuleBtn').addEventListener('click', () => showCreateModuleDialog());
 
   ui.$('saveSearchBtn').addEventListener('click', async () => {
     const data = ui.getSavedSearchData();
@@ -156,6 +161,33 @@ async function onModuleToggle(id) {
 async function onModuleReorder(ids) {
   await mods.reorderModules(ids);
   state.modules = await mods.getModuleList();
+}
+
+async function onModuleCreate(title, icon, prompt) {
+  const mod = await mods.createModule(title, icon, prompt);
+  mods.invalidateCache();
+  state.modules = await mods.getModuleList();
+  renderAll();
+}
+
+function showCreateModuleDialog() {
+  ui.showCreateModule(async (title, icon, prompt) => {
+    await onModuleCreate(title, icon, prompt);
+  });
+}
+
+async function onModuleDelete(id) {
+  try {
+    await mods.deleteModule(id);
+    mods.invalidateCache();
+    state.modules = await mods.getModuleList();
+    if (state.currentModuleId === id) {
+      state.currentModuleId = null;
+    }
+    renderAll();
+  } catch (e) {
+    alert(e.message);
+  }
 }
 
 /* ─── Search ─── */

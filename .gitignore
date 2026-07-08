@@ -2,3 +2,4 @@ node_modules/
 .playwright/
 run-test.cjs
 package-lock.json
+test-results/

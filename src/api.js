@@ -2,6 +2,11 @@ import { getSetting } from './db.js';
 
 const BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
 
+function nowContext() {
+  const d = new Date();
+  return `当前日期和时间: ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}（${d.toLocaleDateString('zh-CN', {weekday:'long'})}）。`;
+}
+
 async function getApiKey() {
   return await getSetting('apiKey');
 }
@@ -86,8 +91,10 @@ export async function callGLM(messages, opts = {}) {
   return data.choices?.[0]?.message?.content || '';
 }
 
-const SEARCH_SYSTEM_PROMPT =
-`你是一位深度分析专家，擅长结合 web_search 的实时信息与自身的知识库进行综合分析。
+const SEARCH_SYSTEM_PROMPT = () =>
+`${nowContext()}
+
+你是一位深度分析专家，擅长结合 web_search 的实时信息与自身的知识库进行综合分析。
 
 回答策略：
 1. **综合结论** — 融合网络最新信息与自身知识储备，给出最全面准确的回答，标注可信度（高/中/低）
@@ -106,15 +113,17 @@ const SEARCH_SYSTEM_PROMPT =
 export async function searchWithAnalysis(query) {
   return await callGLM(
     [
-      { role: 'system', content: SEARCH_SYSTEM_PROMPT },
+      { role: 'system', content: SEARCH_SYSTEM_PROMPT() },
       { role: 'user', content: `【需要联网搜索】请搜索以下内容并提供分析：${query}` },
     ],
     { webSearch: true, searchQuery: query }
   );
 }
 
-const FILE_ANALYSIS_PROMPT =
-`你是一位多学科分析专家。
+const FILE_ANALYSIS_PROMPT = () =>
+`${nowContext()}
+
+你是一位多学科分析专家。
 
 请按以下结构分析文件内容：
 1. **核心摘要** — 用 100-200 字概括核心内容
@@ -125,19 +134,20 @@ const FILE_ANALYSIS_PROMPT =
 
 export async function analyzeFile(content, fileName) {
   return await callGLM([
-    { role: 'system', content: FILE_ANALYSIS_PROMPT },
+    { role: 'system', content: FILE_ANALYSIS_PROMPT() },
     { role: 'user', content: `文件名: ${fileName}\n\n内容:\n${content}` },
   ]);
 }
 
 export async function chatWithModule(systemPrompt, messages, onChunk, opts = {}) {
-  let finalMessages = [{ role: 'system', content: systemPrompt }];
+  const dateContext = nowContext();
+  let finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }];
 
   if (opts.webSearch) {
-    const enhancedSystemPrompt = systemPrompt + `\n\n你已经通过 web_search 工具获取了最新的联网搜索结果。请将网络搜索到的实时信息与你的训练知识相结合来回答用户的问题。对于时效性强的内容优先采用网络搜索结果，对于背景知识和理论分析可以充分运用你的知识库。请在回答中适当标注信息来源是「网络搜索」还是「知识库」。`;
+    const enhancedSystemPrompt = `${dateContext}\n\n${systemPrompt}\n\n你已经通过 web_search 工具获取了最新的联网搜索结果。请将网络搜索到的实时信息与你的训练知识相结合来回答用户的问题。对于时效性强的内容优先采用网络搜索结果，对于背景知识和理论分析可以充分运用你的知识库。请在回答中适当标注信息来源是「网络搜索」还是「知识库」。`;
     finalMessages = [{ role: 'system', content: enhancedSystemPrompt }, ...messages];
   } else {
-    finalMessages = [{ role: 'system', content: systemPrompt }, ...messages];
+    finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }, ...messages];
   }
 
   return await callGLM(

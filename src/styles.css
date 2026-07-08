@@ -460,6 +460,15 @@ input, textarea {
 .msg.assistant .msg-bubble h2 { font-size: 14px; }
 .msg.assistant .msg-bubble h3 { font-size: 13px; }
 
+.msg.streaming .msg-bubble .thinking-text {
+  color: var(--text-tertiary);
+  font-style: italic;
+  animation: pulseText 1.2s ease-in-out infinite;
+}
+@keyframes pulseText {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
 .msg.streaming .msg-bubble::after {
   content: '▊';
   animation: blink 0.8s infinite;

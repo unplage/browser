@@ -176,9 +176,10 @@ export function appendMessage(role, content, streaming = false) {
   msg.className = `msg ${role}${streaming ? ' streaming' : ''}`;
   const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const avatar = role === 'user' ? '👤' : currentChatModule?.icon || '🤖';
+  const body = role === 'assistant' ? renderMarkdown(content) : escapeHtml(content);
   msg.innerHTML = `
     <div class="msg-avatar">${avatar}</div>
-    <div class="msg-bubble">${role === 'assistant' ? renderMarkdown(content) : escapeHtml(content)}</div>
+    <div class="msg-bubble">${streaming && !content ? '<span class="thinking-text">思考中...</span>' : body}</div>
     <div class="msg-time">${time}</div>`;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
@@ -188,6 +189,7 @@ export function appendMessage(role, content, streaming = false) {
 export function updateStreamingMessage(msgEl, fullContent) {
   const bubble = msgEl.querySelector('.msg-bubble');
   if (bubble) bubble.innerHTML = renderMarkdown(fullContent);
+  msgEl.classList.remove('thinking');
 }
 
 export function stopStreaming(msgEl) {

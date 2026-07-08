@@ -95,19 +95,20 @@ async function loadAndShowChat(id) {
   state.currentMessages = chat ? chat.messages : [];
 
   ui.showChat(mod, state.currentMessages, {
-    onSend: text => handleSend(mod, text),
+    onSend: (text, useWeb) => handleSend(mod, text, useWeb),
     onBack: handleChatBack,
     onMenu: () => onModuleEdit(id),
   });
 }
 
-async function handleSend(mod, text) {
+async function handleSend(mod, text, useWeb) {
   if (state.abortController) {
     state.abortController.abort();
   }
   state.abortController = new AbortController();
 
-  state.currentMessages.push({ role: 'user', content: text });
+  const userMsg = useWeb ? `【需要联网搜索最新信息】${text}` : text;
+  state.currentMessages.push({ role: 'user', content: userMsg });
   ui.appendMessage('user', text);
 
   const msgEl = ui.appendMessage('assistant', '', true);
@@ -117,7 +118,7 @@ async function handleSend(mod, text) {
     const result = await api.chatWithModule(mod.systemPrompt, state.currentMessages, (chunk, fullContent) => {
       full = fullContent;
       ui.updateStreamingMessage(msgEl, fullContent);
-    });
+    }, useWeb ? { webSearch: true, searchQuery: text } : {});
     ui.stopStreaming(msgEl);
     state.currentMessages.push({ role: 'assistant', content: result });
   } catch (e) {

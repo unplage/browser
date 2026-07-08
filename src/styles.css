@@ -496,6 +496,15 @@ input, textarea {
   box-shadow: var(--shadow);
 }
 #chatInput:focus { border-color: rgba(37,99,235,0.3); box-shadow: 0 0 0 4px var(--accent-light); }
+.web-toggle {
+  width: 36px; height: 36px; align-self: flex-end;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; font-size: 16px;
+  background: var(--surface-solid); border: 1px solid var(--border);
+  transition: var(--transition); cursor: pointer;
+}
+.web-toggle:hover { background: var(--accent-light); }
+.web-toggle.active { background: #2563eb; border-color: #2563eb; filter: none; }
 #chatSend {
   padding: 10px 20px;
   background: var(--accent-gradient);

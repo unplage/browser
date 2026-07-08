@@ -128,9 +128,9 @@ export async function analyzeFile(content, fileName) {
   ]);
 }
 
-export async function chatWithModule(systemPrompt, messages, onChunk) {
+export async function chatWithModule(systemPrompt, messages, onChunk, opts = {}) {
   return await callGLM(
     [{ role: 'system', content: systemPrompt }, ...messages],
-    { stream: true, onChunk }
+    { stream: true, onChunk, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
   );
 }

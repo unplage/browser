@@ -119,12 +119,18 @@ export function showChat(module, messages, callbacks = {}) {
 
   const sendBtn = $('chatSend');
   const input = $('chatInput');
+  const webToggle = $('chatWebToggle');
+  webToggle.classList.remove('active');
   sendBtn.onclick = () => {
     const text = input.value.trim();
     if (!text) return;
+    const useWeb = webToggle.classList.contains('active');
     input.value = '';
     input.style.height = 'auto';
-    if (callbacks.onSend) callbacks.onSend(text);
+    if (callbacks.onSend) callbacks.onSend(text, useWeb);
+  };
+  webToggle.onclick = () => {
+    webToggle.classList.toggle('active');
   };
   input.onkeydown = e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }

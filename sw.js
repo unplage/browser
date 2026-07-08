@@ -1,4 +1,4 @@
-const CACHE = 'ai-browser-v4';
+const CACHE = 'ai-browser-v5';
 const STATIC = ['/', '/index.html', '/manifest.json', '/favicon.svg'];
 
 self.addEventListener('install', e => {

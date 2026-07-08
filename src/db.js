@@ -1,0 +1,95 @@
+const db = new Dexie('AIBrowser');
+
+db.version(1).stores({
+  modules: 'id, title, enabled, position',
+  layout: 'id',
+  bookmarks: '++id, url, title, tags, createdAt',
+  searchResults: '++id, query, savedAt',
+  chatHistory: '++id, moduleId, createdAt',
+  files: '++id, fileName, fileType, createdAt',
+  settings: 'key'
+});
+
+export async function getModules() {
+  return (await db.modules.toArray()).sort((a, b) => a.position - b.position);
+}
+
+export async function saveModule(mod) {
+  await db.modules.put(mod);
+}
+
+export async function saveModules(mods) {
+  await db.modules.bulkPut(mods);
+}
+
+export async function getLayout() {
+  return await db.layout.get('main') || { cols: 3, moduleOrder: [] };
+}
+
+export async function saveLayout(layout) {
+  await db.layout.put({ id: 'main', ...layout });
+}
+
+export async function getBookmarks() {
+  return await db.bookmarks.orderBy('createdAt').reverse().toArray();
+}
+
+export async function addBookmark(bm) {
+  bm.createdAt = Date.now();
+  return await db.bookmarks.add(bm);
+}
+
+export async function deleteBookmark(id) {
+  await db.bookmarks.delete(id);
+}
+
+export async function getSearchResults() {
+  return await db.searchResults.orderBy('savedAt').reverse().toArray();
+}
+
+export async function saveSearchResult(r) {
+  r.savedAt = Date.now();
+  return await db.searchResults.add(r);
+}
+
+export async function deleteSearchResult(id) {
+  await db.searchResults.delete(id);
+}
+
+export async function getChatHistory(moduleId) {
+  const list = await db.chatHistory.where('moduleId').equals(moduleId).reverse().toArray();
+  return list.length > 0 ? list[0] : null;
+}
+
+export async function saveChatHistory(moduleId, messages) {
+  const existing = await getChatHistory(moduleId);
+  if (existing) {
+    existing.messages = messages;
+    existing.createdAt = Date.now();
+    await db.chatHistory.put(existing);
+  } else {
+    await db.chatHistory.add({ moduleId, messages, createdAt: Date.now() });
+  }
+}
+
+export async function getFiles() {
+  return await db.files.orderBy('createdAt').reverse().toArray();
+}
+
+export async function deleteFile(id) {
+  await db.files.delete(id);
+}
+
+export async function saveFileRecord(rec) {
+  rec.createdAt = Date.now();
+  return await db.files.add(rec);
+}
+
+export async function getSetting(key) {
+  const s = await db.settings.get(key);
+  return s ? s.value : null;
+}
+
+export async function setSetting(key, value) {
+  await db.settings.put({ key, value });
+}

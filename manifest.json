@@ -1,0 +1,12 @@
+{
+  "name": "AI Browser - GLM-4.7-Flash",
+  "short_name": "AI Browser",
+  "description": "基于 GLM-4.7-Flash 的 AI 浏览器 PWA，集成搜索聚合、多模块对话、书签管理、文件分析",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f5f7",
+  "theme_color": "#007aff",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

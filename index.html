@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#007aff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/src/styles.css">
+<title>AI Browser</title>
+</head>
+<body>
+<header id="topbar">
+  <div class="topbar-left">
+    <span class="logo">🤖</span>
+    <span class="app-name">AI Browser</span>
+  </div>
+  <div class="topbar-center">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="联网搜索，获取可信聚合分析...">
+      <button id="searchBtn">搜索</button>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <button id="bookmarkBtn" title="书签管理">📑</button>
+    <button id="savedResultsBtn" title="已保存的搜索结果">💾</button>
+    <button id="uploadBtn" title="上传文件分析">📎</button>
+    <button id="settingsBtn" title="设置">⚙️</button>
+  </div>
+</header>
+
+<div id="main">
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <span>📋 模块</span>
+      <button id="toggleSidebar">◀</button>
+    </div>
+    <nav id="moduleNav"></nav>
+  </aside>
+
+  <main id="content">
+    <div id="gridView"></div>
+
+    <div id="chatView" style="display:none">
+      <div id="chatHeader">
+        <button id="backToGrid">← 返回</button>
+        <span id="chatTitle"></span>
+        <button id="chatMenuBtn">⋯</button>
+      </div>
+      <div id="chatMessages"></div>
+      <div id="chatInputArea">
+        <textarea id="chatInput" placeholder="输入消息..." rows="1"></textarea>
+        <button id="chatSend">发送</button>
+      </div>
+    </div>
+
+    <div id="searchView" style="display:none">
+      <div id="searchViewHeader">
+        <button id="searchBackBtn">← 返回</button>
+        <span id="searchViewTitle">搜索结果</span>
+        <button id="saveSearchBtn">💾 保存</button>
+      </div>
+      <div id="searchResultContent"></div>
+    </div>
+  </main>
+</div>
+
+<div id="modalOverlay" style="display:none">
+  <div id="modalContent"></div>
+</div>
+
+<footer id="statusbar">
+  <span class="status-dot">●</span><span>模型在线</span>
+  <span class="sep">|</span><span>GLM-4-Flash</span>
+  <span class="sep">|</span><span id="moduleCount">模块: 0/12</span>
+</footer>
+
+<script src="https://unpkg.com/dexie@3.2.6/dist/dexie.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script type="module" src="src/app.js"></script>
+</body>
+</html>

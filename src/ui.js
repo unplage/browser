@@ -89,6 +89,8 @@ export function renderGrid(modules, callbacks) {
       handle: '.module-card',
       ghostClass: 'sortable-ghost',
       filter: '.grid-view-title, #gridCreateBtn',
+      delay: 200,
+      delayOnTouchOnly: true,
       onEnd: e => {
         const ids = [...grid.querySelectorAll('.module-card')].map(c => c.dataset.id);
         callbacks.onReorder(ids);

@@ -50,6 +50,8 @@ button {
   color: inherit;
   outline: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 button:active { transform: scale(0.97); }
 

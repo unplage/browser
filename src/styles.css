@@ -90,7 +90,7 @@ input, textarea {
 }
 .app-name { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
 
-.topbar-center { flex: 1; max-width: 480px; margin: 0 auto; }
+.topbar-center { flex: 1; min-width: 0; margin: 0 auto; }
 .search-box {
   display: flex;
   background: var(--surface-secondary);
@@ -98,6 +98,7 @@ input, textarea {
   border-radius: 20px;
   overflow: hidden;
   transition: var(--transition);
+  width: 100%;
 }
 .search-box:focus-within {
   border-color: var(--accent);
@@ -106,10 +107,12 @@ input, textarea {
 }
 #searchInput {
   flex: 1;
+  min-width: 60px;
   padding: 7px 14px;
   background: transparent;
   font-size: 13px;
   color: var(--text);
+  width: 100%;
 }
 #searchInput::placeholder { color: var(--text-tertiary); }
 #searchBtn {
@@ -119,6 +122,8 @@ input, textarea {
   color: var(--accent);
   border-left: 1px solid var(--border);
   transition: var(--transition);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 #searchBtn:hover { background: var(--accent-light); color: var(--accent-hover); }
 #searchBtn:active { background: var(--accent); color: #fff; }
@@ -318,11 +323,11 @@ input, textarea {
   display: flex;
   gap: 4px;
   justify-content: flex-end;
-  opacity: 0;
-  transform: translateY(3px);
+  opacity: 0.7;
   transition: var(--transition);
 }
-.module-card:hover .module-card-actions { opacity: 1; transform: translateY(0); }
+.module-card:hover .module-card-actions { opacity: 1; }
+.module-card:active .module-card-actions { opacity: 1; }
 .module-card-actions button {
   padding: 4px 8px;
   font-size: 11px;
@@ -824,18 +829,22 @@ input, textarea {
 @media (max-width: 768px) {
   #sidebar { width: 0; border: none; }
   #gridView { grid-template-columns: 1fr; }
-  .topbar-center { max-width: none; margin: 0 4px; }
+  .topbar-center { flex: 1 1 100%; min-width: 0; }
   .app-name { display: none; }
   #content { padding: 12px 14px; }
   .grid-view-title .btn-create span { display: none; }
   .msg { max-width: 95%; }
+  .module-card-actions { opacity: 1; }
 }
 
 @media (max-width: 480px) {
-  #topbar { padding: 0 8px; gap: 4px; }
-  .topbar-right button { width: 30px; height: 30px; font-size: 13px; }
-  #createModuleBtn { padding: 0 8px; font-size: 11px; }
+  #topbar { padding: 0 6px; gap: 3px; flex-wrap: nowrap; }
+  .topbar-right button { width: 28px; height: 28px; font-size: 12px; }
+  #createModuleBtn { padding: 0 6px; font-size: 10px; }
   #chatView, #searchView { max-width: 100%; }
+  .search-box { border-radius: 16px; }
+  #searchInput { padding: 6px 10px; font-size: 12px; }
+  #searchBtn { padding: 6px 10px; font-size: 12px; }
 }
 
 /* ─── Hidden (kept for compat) ─── */

@@ -32,8 +32,8 @@ const state = {
 
 function renderAll() {
   const active = state.modules.find(m => m.id === state.currentModuleId);
-  const visible = state.hideAll ? [] : state.modules;
-  ui.renderSidebar(state.modules, state.currentModuleId, onModuleClick);
+  const displayedModules = state.hideAll ? [] : state.modules;
+  ui.renderSidebar(displayedModules, state.currentModuleId, onModuleClick);
   ui.renderGrid(state.hideAll ? [] : state.modules, {
     onOpen: onModuleClick,
     onEdit: onModuleEdit,

@@ -24,7 +24,12 @@ async function request(messages, opts = {}) {
     max_tokens: opts.maxTokens ?? 8192,
   };
 
-  if (opts.webSearch) body.web_search = true;
+  if (opts.webSearch) {
+    body.tools = [{
+      type: 'web_search',
+      web_search: { enable: true, search_query: opts.searchQuery || '' },
+    }];
+  }
 
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: 'POST',
@@ -82,7 +87,7 @@ export async function callGLM(messages, opts = {}) {
 }
 
 const SEARCH_SYSTEM_PROMPT =
-`你是一位专业的信息分析师和事实核查专家。
+`你已经通过 web_search 工具联网搜索到了最新信息。用户的问题需要你基于实时搜索结果回答，而不是依赖你的训练数据。
 
 请按以下结构组织回答：
 1. **综合结论** — 给出核心回答并标注可信度（高/中/低）
@@ -91,6 +96,7 @@ const SEARCH_SYSTEM_PROMPT =
 4. **信息来源** — 列出参考来源及可信度评估
 
 要求：
+- 严格基于搜索结果回答，不要依赖训练数据中的过时信息
 - 区分确凿事实与有待验证的信息
 - 不确定的内容明确说明
 - 所有重要观点标注信息来源`;
@@ -99,9 +105,9 @@ export async function searchWithAnalysis(query) {
   return await callGLM(
     [
       { role: 'system', content: SEARCH_SYSTEM_PROMPT },
-      { role: 'user', content: query },
+      { role: 'user', content: `【需要联网搜索】请搜索以下内容并提供分析：${query}` },
     ],
-    { webSearch: true }
+    { webSearch: true, searchQuery: query }
   );
 }
 

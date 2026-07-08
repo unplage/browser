@@ -15,7 +15,7 @@ async function request(messages, opts = {}) {
   if (!apiKey) throw new Error('请先在设置中配置 API Key');
 
   const body = {
-    model: 'glm-4-flash',
+    model: 'glm-4.7-flash',
     messages,
     stream: !!opts.stream,
     do_sample: true,

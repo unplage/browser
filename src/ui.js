@@ -122,6 +122,8 @@ export function showChat(module, messages, callbacks = {}) {
   const sendBtn = $('chatSend');
   const input = $('chatInput');
   const webToggle = $('chatWebToggle');
+  const uploadBtn = $('chatUploadBtn');
+  const fileInput = $('chatFileInput');
   webToggle.classList.remove('active');
   sendBtn.onclick = () => {
     const text = input.value.trim();
@@ -133,6 +135,19 @@ export function showChat(module, messages, callbacks = {}) {
   };
   webToggle.onclick = () => {
     webToggle.classList.toggle('active');
+  };
+  uploadBtn.onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    fileInput.value = '';
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result;
+      const text = `请分析以下文件内容：\n\n文件名: ${file.name}\n\n\`\`\`\n${content}\n\`\`\``;
+      if (callbacks.onSend) callbacks.onSend(text, false);
+    };
+    reader.readAsText(file);
   };
   input.onkeydown = e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }

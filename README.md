@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🤖 AI Browser
+# 🤖 AI Browser (GLM-4.7-Flash)
 
-**一个基于智谱 GLM-4-Flash 的模块化 AI 浏览器 PWA**
+**一个基于智谱 GLM-4.7-Flash 的模块化 AI 浏览器 PWA**
 
 纯前端 · 无需构建 · 零服务器 · 即开即用
 
@@ -75,7 +75,7 @@ SSE 流式实时输出，逐字渲染 Markdown，响应更流畅。
 | 前端 | 纯 HTML/CSS/JS（ES Modules） |
 | UI 风格 | 玻璃拟态 · 渐变背景 · macOS 美学 |
 | 存储 | IndexedDB（Dexie.js 封装） |
-| AI | 智谱 GLM-4-Flash API（流式 SSE） |
+| AI | 智谱 GLM-4.7-Flash API（流式 SSE） |
 | 拖拽 | SortableJS |
 | 离线 | Service Worker（缓存优先） |
 
@@ -98,7 +98,7 @@ SSE 流式实时输出，逐字渲染 Markdown，响应更流畅。
 ## API 说明
 
 - **接口**: `https://open.bigmodel.cn/api/paas/v4/chat/completions`
-- **模型**: `glm-4-flash`（免费，128K 上下文）
+- **模型**: `glm-4.7-flash`（免费，128K 上下文）
 - **认证**: Bearer Token（API Key 仅存本地）
 - **流式**: `response.body.getReader()` 逐块读取
 - **联网**: 请求体中传入 `web_search: true` 即可，无需额外 API Key
@@ -128,6 +128,6 @@ git push origin main
 
 <div align="center">
 
-<sub>Built with ❤️ and [GLM-4-Flash](https://open.bigmodel.cn)</sub>
+<sub>Built with ❤️ and [GLM-4.7-Flash](https://open.bigmodel.cn)</sub>
 
 </div>

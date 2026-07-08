@@ -1,4 +1,4 @@
-# AI Browser (GLM-4-Flash PWA)
+# AI Browser (GLM-4.7-Flash PWA)
 
 ## Quick start
 
@@ -28,7 +28,7 @@ Pure HTML/CSS/JS PWA — no build step. All data in IndexedDB via Dexie.js (CDN)
 ## GLM-4 API
 
 - **Base**: `https://open.bigmodel.cn/api/paas/v4/chat/completions`
-- **Model**: `glm-4-flash` (free tier, 128K context)
+- **Model**: `glm-4.7-flash` (free tier, 128K context)
 - **Auth**: Bearer token in `Authorization` header (API key stored in IndexedDB, no env var)
 - **Streaming**: SSE via `response.body.getReader()`
 - **Web search**: `tools: [{type: 'web_search', web_search: {enable: true, search_query: '...'}}]` — not a flat boolean
@@ -40,11 +40,11 @@ Pure HTML/CSS/JS PWA — no build step. All data in IndexedDB via Dexie.js (CDN)
 
 ## Service Worker
 
-Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v3` — **bump on static asset changes**.
+Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v5` (in `sw.js:1`) — **bump on static asset changes**.
 
 ## File analysis
 
-Text-only file types: `.txt .md .json .csv .js .py .html`. Binary files are not supported.
+Text-only file types: `.txt .md .json .csv .js .py .html .ts .jsx .tsx .css .xml .yaml .yml .log .ini .cfg`. Binary files are not supported.
 
 ## IndexedDB tables (Dexie)
 

@@ -55,8 +55,25 @@ function bindGlobalEvents() {
     if (e.key === 'Enter') onSearch();
   });
 
-  ui.$('toggleSidebar').addEventListener('click', () => {
-    ui.$('sidebar').classList.toggle('collapsed');
+  function toggleSidebar() {
+    const sidebar = ui.$('sidebar');
+    if (window.innerWidth <= 768) {
+      sidebar.classList.toggle('mobile-overlay');
+      document.body.classList.toggle('sidebar-open');
+    } else {
+      sidebar.classList.toggle('collapsed');
+    }
+  }
+  ui.$('toggleSidebar').addEventListener('click', toggleSidebar);
+  ui.$('mobileMenuBtn').addEventListener('click', toggleSidebar);
+  document.addEventListener('click', e => {
+    if (window.innerWidth > 768) return;
+    const sidebar = ui.$('sidebar');
+    if (!sidebar.classList.contains('mobile-overlay')) return;
+    if (!sidebar.contains(e.target) && e.target !== ui.$('mobileMenuBtn')) {
+      sidebar.classList.remove('mobile-overlay');
+      document.body.classList.remove('sidebar-open');
+    }
   });
 
   ui.$('hideAllBtn').addEventListener('click', () => {
@@ -94,6 +111,10 @@ async function onModuleClick(id) {
   state.currentModuleId = id;
   await loadAndShowChat(id);
   ui.renderSidebar(state.modules, id, onModuleClick);
+  if (window.innerWidth <= 768) {
+    ui.$('sidebar').classList.remove('mobile-overlay');
+    document.body.classList.remove('sidebar-open');
+  }
 }
 
 async function loadAndShowChat(id) {

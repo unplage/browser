@@ -13,6 +13,7 @@
 <body>
 <header id="topbar">
   <div class="topbar-left">
+    <button id="mobileMenuBtn" title="菜单">☰</button>
     <span class="logo">🤖</span>
     <span class="app-name">AI Browser</span>
   </div>
@@ -42,6 +43,7 @@
     </div>
     <nav id="moduleNav"></nav>
   </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
   <main id="content">
     <div id="gridView"></div>
@@ -58,9 +60,11 @@
       <div id="chatMessages"></div>
       <div id="chatInputArea">
         <textarea id="chatInput" placeholder="输入消息..." rows="1"></textarea>
+        <button id="chatUploadBtn" title="上传文件分析">📎</button>
         <button class="web-toggle" id="chatWebToggle" title="联网搜索">🌐</button>
         <button id="chatSend">发送</button>
       </div>
+      <input type="file" id="chatFileInput" style="display:none" accept=".txt,.md,.json,.csv,.js,.py,.html,.ts,.jsx,.tsx,.css,.xml,.yaml,.yml,.log,.ini,.cfg">
     </div>
 
     <div id="searchView" style="display:none">
@@ -89,7 +93,7 @@
 
 <footer id="statusbar">
   <span class="status-dot">●</span><span>模型在线</span>
-  <span class="sep">|</span><span>GLM-4-Flash</span>
+  <span class="sep">|</span><span>GLM-4.7-Flash</span>
   <span class="sep">|</span><span id="moduleCount">模块: 0/12</span>
 </footer>
 

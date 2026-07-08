@@ -20,7 +20,7 @@ export function renderMarkdown(text) {
 }
 
 export function showView(viewId) {
-  ['gridView', 'chatView', 'searchView'].forEach(id => {
+  ['gridView', 'chatView', 'searchView', 'browserView'].forEach(id => {
     $(id).style.display = id === viewId ? '' : 'none';
   });
 }
@@ -145,6 +145,9 @@ export function showChat(module, messages, callbacks = {}) {
   $('chatMenuBtn').onclick = () => {
     if (callbacks.onMenu) callbacks.onMenu();
   };
+  $('clearChatBtn').onclick = () => {
+    if (callbacks.onClearChat) callbacks.onClearChat();
+  };
 }
 
 export function appendMessage(role, content, streaming = false) {
@@ -181,6 +184,8 @@ export function showSearchLoading() {
   $('searchResultContent').innerHTML = '<div class="search-loading"><span class="spinner"></span>正在联网搜索并分析…</div>';
   $('saveSearchBtn').style.display = 'none';
   $('searchBackBtn').onclick = () => showView('gridView');
+  $('searchBtn').classList.add('loading');
+  $('searchBtn').textContent = '搜索中…';
 }
 
 export function showSearchResult(query, content) {
@@ -191,6 +196,8 @@ export function showSearchResult(query, content) {
   saveBtn._query = query;
   saveBtn._content = content;
   saveBtn._resultText = $('searchResultContent').innerText;
+  $('searchBtn').classList.remove('loading');
+  $('searchBtn').textContent = '搜索';
 }
 
 export function getSavedSearchData() {
@@ -329,7 +336,11 @@ function renderBookmarks(container, bookmarks, callbacks) {
       item.style.cursor = 'pointer';
       item.onclick = e => {
         if (e.target.closest('.del-btn')) return;
-        window.open(b.url, '_blank');
+        if (callbacks.onOpenUrl) {
+          callbacks.onOpenUrl(b.url);
+        } else {
+          window.open(b.url, '_blank');
+        }
       };
     }
     list.appendChild(item);
@@ -505,6 +516,26 @@ export function showSavedResults(results, onDelete) {
     });
   }
   showModal('💾 已保存的搜索结果', container);
+}
+
+/* ─── In-App Browser ─── */
+export function showBrowserView(url, onBack) {
+  showView('browserView');
+  $('browserUrl').textContent = url;
+  const frame = $('browserFrame');
+  frame.src = url;
+  frame.onerror = () => {
+    frame.style.display = 'none';
+    frame.insertAdjacentHTML('afterend', '<div class="fallback" style="padding:40px;text-align:center;color:var(--text-tertiary)">⚠️ 此页面无法在应用内打开，请使用外部浏览器</div>');
+  };
+  $('browserBack').onclick = () => {
+    frame.src = '';
+    if (onBack) onBack();
+    else showView('gridView');
+  };
+  $('browserOpenExternal').onclick = () => {
+    window.open(url, '_blank');
+  };
 }
 
 /* ─── Utility ─── */

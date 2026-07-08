@@ -35,7 +35,10 @@
   <aside id="sidebar">
     <div class="sidebar-header">
       <span>📋 模块</span>
-      <button id="toggleSidebar">◀</button>
+      <div>
+        <button id="hideAllBtn" title="隐藏全部模块">👁️</button>
+        <button id="toggleSidebar">◀</button>
+      </div>
     </div>
     <nav id="moduleNav"></nav>
   </aside>
@@ -47,7 +50,10 @@
       <div id="chatHeader">
         <button id="backToGrid">← 返回</button>
         <span id="chatTitle"></span>
-        <button id="chatMenuBtn">⋯</button>
+        <div id="chatActions">
+          <button id="clearChatBtn" title="清空对话">🗑️</button>
+          <button id="chatMenuBtn" title="编辑模块">✏️</button>
+        </div>
       </div>
       <div id="chatMessages"></div>
       <div id="chatInputArea">
@@ -64,6 +70,15 @@
         <button id="saveSearchBtn">💾 保存</button>
       </div>
       <div id="searchResultContent"></div>
+    </div>
+
+    <div id="browserView" style="display:none">
+      <div id="browserHeader">
+        <button id="browserBack">← 返回</button>
+        <span id="browserUrl"></span>
+        <button id="browserOpenExternal" title="在外置浏览器打开">↗️</button>
+      </div>
+      <iframe id="browserFrame" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
     </div>
   </main>
 </div>

@@ -87,19 +87,21 @@ export async function callGLM(messages, opts = {}) {
 }
 
 const SEARCH_SYSTEM_PROMPT =
-`你已经通过 web_search 工具联网搜索到了最新信息。用户的问题需要你基于实时搜索结果回答，而不是依赖你的训练数据。
+`你是一位深度分析专家，擅长结合 web_search 的实时信息与自身的知识库进行综合分析。
 
-请按以下结构组织回答：
-1. **综合结论** — 给出核心回答并标注可信度（高/中/低）
-2. **关键发现** — 分点列出，每点标注来源
-3. **分歧与争议** — 如果存在不同观点，列出并分析
-4. **信息来源** — 列出参考来源及可信度评估
+回答策略：
+1. **综合结论** — 融合网络最新信息与自身知识储备，给出最全面准确的回答，标注可信度（高/中/低）
+2. **关键发现** — 分点列出，每点标注：该信息来自网络搜索结果还是模型知识库
+3. **知识对比** — 如果网络信息与模型训练知识存在差异，分析差异原因（时间差、视角不同等）
+4. **分歧与争议** — 列出不同观点并分析各方依据
+5. **信息来源** — 列出参考来源及可信度评估
 
 要求：
-- 严格基于搜索结果回答，不要依赖训练数据中的过时信息
-- 区分确凿事实与有待验证的信息
-- 不确定的内容明确说明
-- 所有重要观点标注信息来源`;
+- 网络搜索结果作为最新事实依据，模型知识库提供背景和上下文
+- 明确标注信息来源类型：「网络搜索」或「知识库」
+- 当网络信息覆盖不全面时，主动调用知识库补充
+- 区分确凿事实、合理推断与有待验证的信息
+- 不确定的内容明确说明`;
 
 export async function searchWithAnalysis(query) {
   return await callGLM(
@@ -129,8 +131,17 @@ export async function analyzeFile(content, fileName) {
 }
 
 export async function chatWithModule(systemPrompt, messages, onChunk, opts = {}) {
+  let finalMessages = [{ role: 'system', content: systemPrompt }];
+
+  if (opts.webSearch) {
+    const enhancedSystemPrompt = systemPrompt + `\n\n你已经通过 web_search 工具获取了最新的联网搜索结果。请将网络搜索到的实时信息与你的训练知识相结合来回答用户的问题。对于时效性强的内容优先采用网络搜索结果，对于背景知识和理论分析可以充分运用你的知识库。请在回答中适当标注信息来源是「网络搜索」还是「知识库」。`;
+    finalMessages = [{ role: 'system', content: enhancedSystemPrompt }, ...messages];
+  } else {
+    finalMessages = [{ role: 'system', content: systemPrompt }, ...messages];
+  }
+
   return await callGLM(
-    [{ role: 'system', content: systemPrompt }, ...messages],
+    finalMessages,
     { stream: true, onChunk, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
   );
 }

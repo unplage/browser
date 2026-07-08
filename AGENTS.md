@@ -1,85 +1,67 @@
-# AGENTS.md — AI Browser (GLM-4.7-Flash PWA)
+# AI Browser (GLM-4-Flash PWA)
 
 ## Quick start
 
 ```bash
 python3 -m http.server 8080
-# Open http://localhost:8080
-# Then: Settings → enter Zhipu API Key (free at https://open.bigmodel.cn)
+# Open http://localhost:8080 → Settings → enter Zhipu API Key
 ```
 
 ## Architecture
 
-Pure HTML/CSS/JS PWA — no build step. All data stored in browser IndexedDB via Dexie.js. GLM-4 API calls go directly to `open.bigmodel.cn` (CORS verified, GitHub Pages compatible).
-
-## File layout
-
-| File | Responsibility |
-|------|---------------|
-| `index.html` | App shell, CDN links (Dexie, SortableJS), PWA meta tags |
-| `manifest.json` | PWA manifest (`display: standalone`) |
-| `sw.js` | Service worker — cache-first for static assets |
-| `src/app.js` | Coordinator: init, event binding, state machine |
-| `src/ui.js` | All DOM rendering: sidebar, grid, chat, modals, bookmarks, file upload |
-| `src/db.js` | Dexie wrapper — 7 tables (modules, bookmarks, searchResults, chatHistory, files, settings, layout) |
-| `src/api.js` | GLM-4 API: streaming SSE, web_search, file analysis |
-| `src/modules.js` | 12 module definitions with system prompts, layout persistence |
-| `src/styles.css` | Minimalist design — CSS variables, system font, macOS aesthetic |
+Pure HTML/CSS/JS PWA — no build step. All data in IndexedDB via Dexie.js (CDN). GLM-4 API calls go directly to `open.bigmodel.cn`.
 
 ## Key commands
 
 | Action | How |
 |--------|-----|
 | Dev server | `python3 -m http.server 8080` |
-| Test | `npm install && npx playwright install firefox && node run-test.cjs` |
-| Deploy | Push to GitHub Pages (`gh-pages` or `main` root) |
-| PWA test | Chrome DevTools → Application → Manifest / Service Workers |
+| Test | Start dev server first, then `npm install && npx playwright install firefox && node run-test.cjs` |
+| Deploy | Push to GitHub Pages (any domain, CORS pre-verified) |
+
+## Test quirks
+
+- Tests are Playwright with **Firefox only** (not Chromium).
+- `run-test.cjs` and `package-lock.json` are in `.gitignore` — they exist locally but are **not committed**.
+- Tests verify DOM rendering, IndexedDB table count (7), and modal open/close. No API key is needed.
 
 ## GLM-4 API
 
-- **Base**: `https://open.bigmodel.cn/api/paas/v4`
-- **Model**: `glm-4-flash` (free tier, 128K context, ~200K for 4.7 Flash)
-- **Auth**: Bearer token in `Authorization` header
+- **Base**: `https://open.bigmodel.cn/api/paas/v4/chat/completions`
+- **Model**: `glm-4-flash` (free tier, 128K context)
+- **Auth**: Bearer token in `Authorization` header (API key stored in IndexedDB, no env var)
 - **Streaming**: SSE via `response.body.getReader()`
-- **Web search**: `web_search: true` in request body — built-in, no extra API key
-- **CORS**: Verified — returns `Access-Control-Allow-Origin: <origin>` dynamically. Works from any domain including GitHub Pages.
+- **Web search**: `tools: [{type: 'web_search', web_search: {enable: true, search_query: '...'}}]` — not a flat boolean
 - **Rate limit**: ~1 req/s, 1 concurrent (free tier)
 
 ## Module system
 
-12 default modules + custom modules in `src/modules.js`. Each has `{ id, title, icon, systemPrompt, enabled, position }`. Users can:
-- Edit prompts via UI (saved to IndexedDB)
-- Create custom modules with unique name, icon, and system prompt
-- Delete custom modules (default modules protected)
-- Drag to reorder (SortableJS)
-- Enable/disable
-- Reset default module prompts to original
+12 default modules + custom modules in `src/modules.js` (`modules/`). Custom IDs use `custom_N` prefix. Default modules cannot be deleted. All modules share the same `ChatPanel` — only `systemPrompt` differs.
 
-All modules share the same `ChatPanel` component — only the systemPrompt differs.
+## Service Worker
+
+Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v3` — **bump on static asset changes**.
+
+## File analysis
+
+Text-only file types: `.txt .md .json .csv .js .py .html`. Binary files are not supported.
 
 ## IndexedDB tables (Dexie)
 
-| Table | Key | Value shape |
-|-------|-----|-------------|
-| `modules` | `id` | `{ id, title, icon, systemPrompt, enabled, position }` |
-| `layout` | `'main'` | `{ cols, moduleOrder }` |
-| `bookmarks` | autoIncr | `{ url, title, tags, createdAt }` |
-| `searchResults` | autoIncr | `{ query, content, result, savedAt }` |
-| `chatHistory` | autoIncr | `{ moduleId, messages[], createdAt }` |
-| `files` | autoIncr | `{ fileName, fileType, content, analysis, createdAt }` |
-| `settings` | key | `{ key, value }` |
+| Table | Key | Notes |
+|-------|-----|-------|
+| `modules` | `id` | Also indexed: `title, enabled, position` |
+| `layout` | `'main'` | Singleton (`{ cols, moduleOrder }`) |
+| `bookmarks` | autoIncr | Indexed: `url, title, tags, createdAt` |
+| `searchResults` | autoIncr | Indexed: `query, savedAt` |
+| `chatHistory` | autoIncr | Indexed: `moduleId, createdAt` |
+| `files` | autoIncr | Indexed: `fileName, fileType, createdAt` |
+| `settings` | `key` | Key-value store |
 
 ## Coding conventions
 
-- No frameworks — vanilla JS with ES modules (`type="module"`)
-- `export function` not classes, no `this` binding issues
-- All callbacks flow: ui renders → app.js handles → api/db does work → ui updates
-- Markdown rendered client-side with simple regex (`renderMarkdown` in ui.js)
+- Vanilla JS with ES modules (`type="module"`), no classes, no `this` binding
+- `export function`, callbacks flow: ui → app → api/db → ui
+- Markdown rendered client-side with simple regex (`renderMarkdown` in `ui.js` — limited, no link/table support)
 - No comments beyond section headers
-
-## GitHub Pages deployment
-
-1. Push files to repository root
-2. GitHub repo Settings → Pages → deploy from `main` / (root)
-3. No build step needed. SW will register automatically on HTTPS.
-4. CORS confirmed working — no proxy required.
+- Language: primarily Chinese (UI labels, system prompts, code comments)

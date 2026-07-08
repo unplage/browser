@@ -8,6 +8,8 @@ const state = {
   currentModuleId: null,
   currentMessages: [],
   abortController: null,
+  hideAll: false,
+  chatBackToModuleId: null,
 };
 
 (async function init() {
@@ -30,8 +32,9 @@ const state = {
 
 function renderAll() {
   const active = state.modules.find(m => m.id === state.currentModuleId);
+  const visible = state.hideAll ? [] : state.modules;
   ui.renderSidebar(state.modules, state.currentModuleId, onModuleClick);
-  ui.renderGrid(state.modules, {
+  ui.renderGrid(state.hideAll ? [] : state.modules, {
     onOpen: onModuleClick,
     onEdit: onModuleEdit,
     onToggle: onModuleToggle,
@@ -54,6 +57,12 @@ function bindGlobalEvents() {
 
   ui.$('toggleSidebar').addEventListener('click', () => {
     ui.$('sidebar').classList.toggle('collapsed');
+  });
+
+  ui.$('hideAllBtn').addEventListener('click', () => {
+    state.hideAll = !state.hideAll;
+    ui.$('hideAllBtn').classList.toggle('active');
+    renderAll();
   });
 
   ui.$('bookmarkBtn').addEventListener('click', openBookmarks);
@@ -98,6 +107,7 @@ async function loadAndShowChat(id) {
     onSend: (text, useWeb) => handleSend(mod, text, useWeb),
     onBack: handleChatBack,
     onMenu: () => onModuleEdit(id),
+    onClearChat: () => handleClearChat(id),
   });
 }
 
@@ -128,6 +138,21 @@ async function handleSend(mod, text, useWeb) {
 
   state.abortController = null;
   await db.saveChatHistory(mod.id, state.currentMessages);
+}
+
+async function handleClearChat(moduleId) {
+  if (!confirm('确认清空此模块的对话记录？')) return;
+  state.currentMessages = [];
+  await db.saveChatHistory(moduleId, []);
+  const mod = state.modules.find(m => m.id === moduleId);
+  if (mod) {
+    ui.showChat(mod, state.currentMessages, {
+      onSend: (text, useWeb) => handleSend(mod, text, useWeb),
+      onBack: handleChatBack,
+      onMenu: () => onModuleEdit(moduleId),
+      onClearChat: () => handleClearChat(moduleId),
+    });
+  }
 }
 
 async function handleChatBack() {
@@ -205,6 +230,8 @@ async function onSearch() {
     ui.showSearchResult(query, result);
   } catch (e) {
     ui.$('searchResultContent').innerHTML = `<div style="color:var(--danger);padding:20px">搜索分析失败: ${e.message}</div>`;
+    ui.$('searchBtn').classList.remove('loading');
+    ui.$('searchBtn').textContent = '搜索';
   }
 }
 
@@ -229,6 +256,11 @@ async function openBookmarks() {
       return await db.getBookmarks();
     },
     onRefresh: async () => await db.getBookmarks(),
+    onOpenUrl: (url) => {
+      ui.showBrowserView(url, () => {
+        ui.showView('gridView');
+      });
+    },
   });
 }
 

@@ -40,7 +40,7 @@ Pure HTML/CSS/JS PWA — no build step. All data in IndexedDB via Dexie.js (CDN)
 
 ## Service Worker
 
-Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v8` (in `sw.js:1`) — **bump on static asset changes**.
+Cache-first for `index.html`, `manifest.json`, `favicon.svg`, and all `/src/*` paths. Cache key: `ai-browser-v9` (in `sw.js:1`) — **bump on static asset changes**.
 
 ## File analysis
 

@@ -515,7 +515,7 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
         <span>温度 (temperature): <span id="tempVal">${extra.temperature ?? 1.0}</span></span>
       </div>
-      <input type="range" id="temperatureInput" min="0" max="1" step="0.1" value="${extra.temperature ?? 1.0}" style="width:100%" oninput="document.getElementById('tempVal').textContent=this.value">
+      <input type="range" id="temperatureInput" min="0" max="1" step="0.1" value="${extra.temperature ?? 1.0}" style="width:100%">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
         <span>确定 (0.0)</span>
         <span>创造性 (1.0)</span>
@@ -525,7 +525,7 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
         <span>核采样 (top_p): <span id="topPVal">${extra.topP ?? 0.95}</span></span>
       </div>
-      <input type="range" id="topPInput" min="0.01" max="1" step="0.05" value="${extra.topP ?? 0.95}" style="width:100%" oninput="document.getElementById('topPVal').textContent=this.value">
+      <input type="range" id="topPInput" min="0.01" max="1" step="0.05" value="${extra.topP ?? 0.95}" style="width:100%">
       <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
         <span>集中 (0.01)</span>
         <span>多样 (1.0)</span>
@@ -554,6 +554,8 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
   footer.appendChild(exportAllBtn);
   footer.appendChild(importAllBtn);
   const modal = showModal('⚙️ 设置', form, footer);
+  $('temperatureInput').addEventListener('input', function() { $('tempVal').textContent = this.value; });
+  $('topPInput').addEventListener('input', function() { $('topPVal').textContent = this.value; });
   saveBtn.onclick = async () => {
     const val = $('apiKeyInput').value.trim();
     const theme = $('themeSelect').value;
@@ -657,42 +659,48 @@ export function showBookmarkPanel(bookmarks, callbacks) {
     input.type = 'file';
     input.accept = '.html,.htm';
     input.onchange = async e => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const text = await file.text();
-      const cleaned = text.replace(/<p\b[^>]*>/gi, '').replace(/<\/p>/gi, '');
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(cleaned, 'text/html');
-      const results = [];
-      function parseFolder(dlEl, path) {
-        let child = dlEl.firstElementChild;
-        while (child) {
-          if (child.tagName === 'DT') {
-            const h3 = child.querySelector(':scope > H3');
-            const a = child.querySelector(':scope > A');
-            if (h3) {
-              const name = (h3.textContent || '').trim();
-              const newPath = path ? path + '/' + name : name;
-              let next = child.nextElementSibling;
-              while (next && next.tagName !== 'DL') next = next.nextElementSibling;
-              if (next) parseFolder(next, newPath);
-            } else if (a && a.href && a.href.startsWith('http')) {
-              results.push({
-                url: a.href,
-                title: (a.textContent || '').trim() || a.href,
-                tags: a.getAttribute('tags') || '',
-                folder: path
-              });
+      try {
+        const file = e.target.files[0];
+        if (!file) return;
+        const text = await file.text();
+        const cleaned = text.replace(/<p\b[^>]*>/gi, '').replace(/<\/p>/gi, '');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(cleaned, 'text/html');
+        const results = [];
+        function parseFolder(dlEl, path) {
+          let child = dlEl.firstElementChild;
+          while (child) {
+            if (child.tagName === 'DT') {
+              const h3 = child.querySelector(':scope > H3');
+              const a = child.querySelector(':scope > A');
+              if (h3) {
+                const name = (h3.textContent || '').trim();
+                const newPath = path ? path + '/' + name : name;
+                let next = child.nextElementSibling;
+                while (next && next.tagName !== 'DL') next = next.nextElementSibling;
+                if (next) parseFolder(next, newPath);
+              } else if (a && a.href && a.href.startsWith('http')) {
+                results.push({
+                  url: a.href,
+                  title: (a.textContent || '').trim() || a.href,
+                  tags: a.getAttribute('tags') || '',
+                  folder: path
+                });
+              }
             }
+            child = child.nextElementSibling;
           }
-          child = child.nextElementSibling;
         }
-      }
-      const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => !dl.closest('DL'));
-      for (const dl of allDLs) parseFolder(dl, '');
-      for (const r of results) await callbacks.onAdd(r);
-      const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
-      renderBookmarks(container, updated, callbacks, batchMode);
+        const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => !dl.closest('DL'));
+        if (allDLs.length === 0) { showToast('未识别到书签文件，请确认是浏览器导出的 HTML', 'warning'); return; }
+        for (const dl of allDLs) parseFolder(dl, '');
+        if (results.length === 0) { showToast('未在文件中找到书签', 'warning'); return; }
+        for (const r of results) await callbacks.onAdd(r);
+        const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
+        renderBookmarks(container, updated, callbacks, batchMode);
+        showToast(`已导入 ${results.length} 个书签`, 'success');
+      } catch (err) { showToast('导入失败: ' + err.message, 'error'); }
+      finally { e.target.value = ''; }
     };
     input.click();
   };

@@ -149,17 +149,6 @@ input, textarea {
 .topbar-right button:hover { background: var(--accent-light); color: var(--accent); }
 .topbar-right button:active { background: var(--accent); color: #fff; }
 
-#createModuleBtn {
-  width: auto;
-  padding: 0 12px;
-  gap: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent);
-  margin-right: 4px;
-}
-#createModuleBtn:hover { background: var(--accent-light); }
-
 /* ─── Main Layout ─── */
 #main { flex: 1; display: flex; overflow: hidden; }
 
@@ -429,6 +418,8 @@ input, textarea {
 }
 #chatActions button:hover { background: var(--accent-light); color: var(--accent); }
 #clearChatBtn:hover { background: rgba(231,76,76,0.1); color: var(--danger); }
+#chatStopBtn { font-size: 14px; padding: 5px 8px; border-radius: 6px; color: var(--danger); transition: var(--transition); }
+#chatStopBtn:hover { background: rgba(231,76,76,0.1); }
 
 #chatMessages {
   flex: 1;

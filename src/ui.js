@@ -214,6 +214,15 @@ export function showChat(module, messages, callbacks = {}) {
   $('clearChatBtn').onclick = () => {
     if (callbacks.onClearChat) callbacks.onClearChat();
   };
+  $('chatStopBtn').onclick = () => {
+    if (callbacks.onStop) callbacks.onStop();
+  };
+  $('chatStopBtn').style.display = 'none';
+}
+
+export function showStreaming(active) {
+  const btn = $('chatStopBtn');
+  if (btn) btn.style.display = active ? '' : 'none';
 }
 
 export function appendMessage(role, content, streaming = false, imageData = null) {
@@ -504,7 +513,7 @@ export function showModuleEditor(module, onSave) {
   const row = isCustom ? `<label>模型</label>
     <select id="modModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
       <option value="glm-4.7-flash" ${(!module.model || module.model === 'glm-4.7-flash') ? 'selected' : ''}>glm-4.7-flash（默认）</option>
-      <option value="glm-4.6V-flash" ${module.model === 'glm-4.6V-flash' ? 'selected' : ''}>glm-4.6V-flash（视觉）</option>
+      <option value="glm-4.6v-flash" ${module.model === 'glm-4.6v-flash' ? 'selected' : ''}>glm-4.6v-flash（视觉）</option>
     </select>` : '';
   form.innerHTML = `
     <label>模块名称</label>
@@ -554,7 +563,7 @@ export function showCreateModule(onCreate) {
     <label>模型</label>
     <select id="newModModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
       <option value="glm-4.7-flash">glm-4.7-flash（默认，文本）</option>
-      <option value="glm-4.6V-flash">glm-4.6V-flash（视觉，支持图片）</option>
+      <option value="glm-4.6v-flash">glm-4.6v-flash（视觉，支持图片）</option>
     </select>
     <label>系统提示词 (System Prompt)</label>
     <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;

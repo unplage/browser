@@ -87,8 +87,6 @@ function bindGlobalEvents() {
   ui.$('uploadBtn').addEventListener('click', openFileUpload);
   ui.$('settingsBtn').addEventListener('click', openSettings);
 
-  ui.$('createModuleBtn').addEventListener('click', () => showCreateModuleDialog());
-
   ui.$('saveSearchBtn').addEventListener('click', async () => {
     const data = ui.getSavedSearchData();
     if (!data.query) return;
@@ -130,6 +128,11 @@ async function loadAndShowChat(id) {
     onBack: handleChatBack,
     onMenu: () => onModuleEdit(id),
     onClearChat: () => handleClearChat(id),
+    onStop: () => {
+      if (state.abortController) {
+        state.abortController.abort();
+      }
+    },
     onImage: (dataUrl) => {
       state.pendingImage = dataUrl;
     },
@@ -150,6 +153,8 @@ async function handleSend(text, useWeb) {
   ui.appendMessage('user', text, false, state.pendingImage);
   ui.clearPendingImage();
 
+  ui.showStreaming(true);
+
   const msgEl = ui.appendMessage('assistant', '', true);
   let full = '';
 
@@ -162,13 +167,20 @@ async function handleSend(text, useWeb) {
       webSearch: useWeb,
       searchQuery: useWeb ? text : undefined,
       imageData: state.pendingImage,
+      signal: state.abortController.signal,
     });
     ui.stopStreaming(msgEl);
+    ui.showStreaming(false);
     state.currentMessages.push({ role: 'assistant', content: result });
     state.pendingImage = null;
   } catch (e) {
     ui.stopStreaming(msgEl);
-    ui.updateStreamingMessage(msgEl, `\n\n**错误**: ${e.message}`);
+    ui.showStreaming(false);
+    if (e.name === 'AbortError') {
+      ui.updateStreamingMessage(msgEl, `\n\n*⏹️ 已停止生成*`);
+    } else {
+      ui.updateStreamingMessage(msgEl, `\n\n**错误**: ${e.message}`);
+    }
     state.pendingImage = null;
   }
 
@@ -193,6 +205,10 @@ async function handleClearChat(moduleId) {
 }
 
 async function handleChatBack() {
+  if (state.abortController) {
+    state.abortController.abort();
+    state.abortController = null;
+  }
   if (state.currentModuleId) {
     await db.saveChatHistory(state.currentModuleId, state.currentMessages);
   }

@@ -43,6 +43,7 @@ async function request(messages, opts = {}) {
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: opts.signal,
   });
 
   if (!res.ok) {
@@ -56,7 +57,8 @@ async function request(messages, opts = {}) {
 
 export async function callGLM(messages, opts = {}) {
   if (opts.stream) {
-    const res = await request(messages, opts);
+    let signal = opts.signal;
+    const res = await request(messages, { ...opts, signal });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
@@ -144,7 +146,7 @@ export async function chatWithModule(systemPrompt, messages, onChunk, opts = {})
   let finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }];
 
   let msgCopy = messages;
-  if (opts.imageData && opts.model?.includes('V')) {
+  if (opts.imageData && opts.model?.toLowerCase().includes('v')) {
     const last = msgCopy[msgCopy.length - 1];
     if (last && last.role === 'user') {
       msgCopy = msgCopy.slice(0, -1);
@@ -167,6 +169,6 @@ export async function chatWithModule(systemPrompt, messages, onChunk, opts = {})
 
   return await callGLM(
     finalMessages,
-    { stream: true, onChunk, model: opts.model, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
+    { stream: true, onChunk, model: opts.model, signal: opts.signal, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
   );
 }

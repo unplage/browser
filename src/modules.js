@@ -1,4 +1,4 @@
-import { getModules, saveModule, saveModules, deleteModule as dbDeleteModule } from './db.js';
+import { getModules, saveModule, saveModules, deleteModule as dbDeleteModule, getSetting, setSetting } from './db.js';
 
 const DEFAULT_MODULES = [
   {
@@ -114,7 +114,7 @@ const DEFAULT_MODULES = [
     icon: '👁️',
     enabled: true,
     position: 12,
-    model: 'glm-4.6V-flash',
+    model: 'glm-4.6v-flash',
     systemPrompt: `你是一位多模态视觉分析专家，擅长分析和描述图像内容。你可以：① 详细描述图像中的物体、场景、人物和活动 ② 分析图像的技术质量（构图、光线、色彩等） ③ 识别图表、截图、文档中的文字信息 ④ 提供基于图像的专业建议和改进方案。回答结构化、通俗易懂。`,
   },
 ];
@@ -124,11 +124,17 @@ let modulesCache = null;
 export async function getModuleList() {
   if (modulesCache) return modulesCache;
   let stored = await getModules();
+  const deleted = await getSetting('deletedDefaults') || [];
+
   if (stored.length === 0) {
-    await saveModules(DEFAULT_MODULES);
-    stored = DEFAULT_MODULES;
+    const toSave = DEFAULT_MODULES.filter(d => !deleted.includes(d.id));
+    if (toSave.length > 0) {
+      await saveModules(toSave);
+      stored = toSave;
+    }
   } else {
     for (const def of DEFAULT_MODULES) {
+      if (deleted.includes(def.id)) continue;
       if (!stored.find(m => m.id === def.id)) {
         def.enabled = true;
         def.position = stored.length;
@@ -136,6 +142,7 @@ export async function getModuleList() {
         stored.push(def);
       }
     }
+    stored = stored.filter(m => !deleted.includes(m.id));
   }
   modulesCache = stored.sort((a, b) => a.position - b.position);
   return modulesCache;
@@ -192,12 +199,29 @@ export async function createModule(title, icon, systemPrompt, model) {
 }
 
 export async function deleteModule(id) {
-  if (isDefaultModule(id)) throw new Error('不能删除默认模块');
   await dbDeleteModule(id);
   if (modulesCache) {
     modulesCache = modulesCache.filter(m => m.id !== id);
   }
+  if (isDefaultModule(id)) {
+    const deleted = await getSetting('deletedDefaults') || [];
+    if (!deleted.includes(id)) {
+      deleted.push(id);
+      await setSetting('deletedDefaults', deleted);
+    }
+  }
+}
+
+export async function restoreDefaultModule(id) {
+  if (!isDefaultModule(id)) return;
+  const deleted = await getSetting('deletedDefaults') || [];
+  const idx = deleted.indexOf(id);
+  if (idx !== -1) {
+    deleted.splice(idx, 1);
+    await setSetting('deletedDefaults', deleted);
+  }
+  invalidateCache();
 }
 
 export const MODULE_IDS = DEFAULT_MODULES.map(m => m.id);
-export const MODEL_OPTIONS = ['glm-4.7-flash', 'glm-4.6V-flash'];
+export const MODEL_OPTIONS = ['glm-4.7-flash', 'glm-4.6v-flash'];

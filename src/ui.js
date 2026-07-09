@@ -691,7 +691,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
             child = child.nextElementSibling;
           }
         }
-        const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => !dl.closest('DL'));
+        const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => dl.parentElement === doc.body);
         if (allDLs.length === 0) { showToast('未识别到书签文件，请确认是浏览器导出的 HTML', 'warning'); return; }
         for (const dl of allDLs) parseFolder(dl, '');
         if (results.length === 0) { showToast('未在文件中找到书签', 'warning'); return; }

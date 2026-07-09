@@ -74,8 +74,8 @@ export function applyTheme(mode) {
 
 /* ─── Quick Search Bar ─── */
 const SEARCH_ENGINES = [
-  { label: '百度', url: q => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}` },
   { label: 'Bing', url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}` },
+  { label: '百度', url: q => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}` },
   { label: 'Google', url: q => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
   { label: 'DuckDuckGo', url: q => `https://duckduckgo.com/?q=${encodeURIComponent(q)}` },
 ];

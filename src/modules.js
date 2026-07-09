@@ -224,4 +224,4 @@ export async function restoreDefaultModule(id) {
 }
 
 export const MODULE_IDS = DEFAULT_MODULES.map(m => m.id);
-export const MODEL_OPTIONS = ['glm-4.7-flash', 'glm-4.6v-flash'];
+export const MODEL_OPTIONS = ['glm-4.7-flash', 'glm-4.6v-flash', 'glm-4v-flash'];

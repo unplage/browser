@@ -22,8 +22,19 @@ try {
     settings: 'key',
     presets: '++id, createdAt',
   }).upgrade(async tx => {
-    // v1→v2: presets table added, no data migration needed
     console.log('[DB] migrated to v2');
+  });
+  db.version(3).stores({
+    modules: 'id, title, enabled, position',
+    layout: 'id',
+    bookmarks: '++id, url, title, tags, folder, createdAt',
+    searchResults: '++id, query, savedAt',
+    chatHistory: '++id, moduleId, createdAt',
+    files: '++id, fileName, fileType, createdAt',
+    settings: 'key',
+    presets: '++id, createdAt',
+  }).upgrade(async tx => {
+    console.log('[DB] migrated to v3');
   });
   dbReady = true;
 } catch (e) {

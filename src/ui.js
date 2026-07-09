@@ -164,7 +164,8 @@ export function renderGrid(modules, callbacks, hideAll = false) {
     </div>
   </div>`;
   renderQuickSearchBar(grid, callbacks);
-  modules.filter(m => m.enabled).forEach(m => {
+  const enabledMods = modules.filter(m => m.enabled);
+  enabledMods.forEach((m, idx) => {
     const card = document.createElement('div');
     card.className = 'module-card';
     card.dataset.id = m.id;
@@ -176,6 +177,8 @@ export function renderGrid(modules, callbacks, hideAll = false) {
       </div>
       <div class="module-card-preview">${escapeHtml(m.systemPrompt.slice(0, 80))}…</div>
       <div class="module-card-actions">
+        <button class="reorder-btn reorder-up mobile-only" data-action="move-up" ${idx === 0 ? 'disabled' : ''}>⬆</button>
+        <button class="reorder-btn reorder-down mobile-only" data-action="move-down" ${idx === enabledMods.length - 1 ? 'disabled' : ''}>⬇</button>
         <button class="edit-btn" data-action="edit">✏️ 编辑</button>
         <button class="toggle-btn" data-action="disable">${m.enabled ? '🔇' : '🔊'}</button>
         <button class="del-btn" data-action="delete">🗑️</button>
@@ -196,6 +199,24 @@ export function renderGrid(modules, callbacks, hideAll = false) {
       e.stopPropagation();
       const ok = await showConfirm(`确认删除模块「${m.title}」？此操作不可恢复。`);
       if (ok) callbacks.onDelete(m.id);
+    });
+    card.querySelector('[data-action="move-up"]').addEventListener('click', e => {
+      e.stopPropagation();
+      const prev = card.previousElementSibling;
+      if (prev && prev.classList.contains('module-card')) {
+        grid.insertBefore(card, prev);
+        const ids = [...grid.querySelectorAll('.module-card')].map(c => c.dataset.id);
+        callbacks.onReorder(ids);
+      }
+    });
+    card.querySelector('[data-action="move-down"]').addEventListener('click', e => {
+      e.stopPropagation();
+      const next = card.nextElementSibling;
+      if (next && next.classList.contains('module-card')) {
+        grid.insertBefore(next, card);
+        const ids = [...grid.querySelectorAll('.module-card')].map(c => c.dataset.id);
+        callbacks.onReorder(ids);
+      }
     });
     grid.appendChild(card);
   });
@@ -580,13 +601,15 @@ export function showBookmarkPanel(bookmarks, callbacks) {
   [addBtn, importBtn, exportBtn, saveResultBtn, batchBtn].forEach(b => footer.appendChild(b));
 
   let batchMode = false;
-  batchBtn.onclick = () => {
+  batchBtn.onclick = async () => {
     batchMode = !batchMode;
-    renderBookmarks(container, bookmarks, callbacks, batchMode);
+    const current = await callbacks.onRefresh();
+    renderBookmarks(container, current, callbacks, batchMode);
     batchBtn.textContent = batchMode ? '✅ 完成' : '☑️ 批量操作';
   };
 
   const modal = showModal('📑 书签管理', container, footer);
+  callbacks.closeModal = () => modal.close();
 
   addBtn.onclick = async () => {
     const url = prompt('输入网址:');
@@ -595,7 +618,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
     try { host = new URL(url).hostname; } catch { host = url; }
     const title = prompt('输入标题:', host);
     const updated = await callbacks.onAdd({ url, title: title || url, tags: '' });
-    renderBookmarks(container, updated, callbacks);
+    renderBookmarks(container, updated, callbacks, batchMode);
   };
   importBtn.onclick = () => {
     const input = document.createElement('input');
@@ -607,14 +630,36 @@ export function showBookmarkPanel(bookmarks, callbacks) {
       const text = await file.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(text, 'text/html');
-      const links = doc.querySelectorAll('a[href]');
-      for (const a of links) {
-        if (a.href.startsWith('http')) {
-          await callbacks.onAdd({ url: a.href, title: a.textContent || a.href, tags: '' });
+      const results = [];
+      function parseFolder(dlEl, path) {
+        let child = dlEl.firstElementChild;
+        while (child) {
+          if (child.tagName === 'DT') {
+            const h3 = child.querySelector(':scope > H3');
+            const a = child.querySelector(':scope > A');
+            if (h3) {
+              const name = (h3.textContent || '').trim();
+              const newPath = path ? path + '/' + name : name;
+              let next = child.nextElementSibling;
+              while (next && next.tagName !== 'DL') next = next.nextElementSibling;
+              if (next) parseFolder(next, newPath);
+            } else if (a && a.href && a.href.startsWith('http')) {
+              results.push({
+                url: a.href,
+                title: (a.textContent || '').trim() || a.href,
+                tags: a.getAttribute('tags') || '',
+                folder: path
+              });
+            }
+          }
+          child = child.nextElementSibling;
         }
       }
+      const rootDL = doc.querySelector('DL');
+      if (rootDL) parseFolder(rootDL, '');
+      for (const r of results) await callbacks.onAdd(r);
       const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
-      renderBookmarks(container, updated, callbacks);
+      renderBookmarks(container, updated, callbacks, batchMode);
     };
     input.click();
   };
@@ -630,24 +675,85 @@ export function showBookmarkPanel(bookmarks, callbacks) {
     const data = getSavedSearchData();
     if (data.query) {
       const updated = await callbacks.onAdd({ url: '', title: `[搜索] ${data.query}`, tags: 'search-result' });
-      renderBookmarks(container, updated, callbacks);
+      renderBookmarks(container, updated, callbacks, batchMode);
     }
   };
 }
 
 function renderBookmarks(container, bookmarks, callbacks, batchMode) {
+  const prevSearch = container.querySelector('.bookmark-search');
+  const prevSort = container.querySelector('.bookmark-sort');
+  const searchVal = prevSearch ? prevSearch.value : '';
+  const sortVal = prevSort ? prevSort.value : 'newest';
+
   container.innerHTML = '';
   if (bookmarks.length === 0) {
     container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无书签</div></div>';
     return;
   }
+
+  /* Toolbar */
+  const toolbar = document.createElement('div');
+  toolbar.className = 'bookmark-toolbar';
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.className = 'bookmark-search';
+  searchInput.placeholder = '🔍 搜索书签…';
+  searchInput.value = searchVal;
+  const sortSelect = document.createElement('select');
+  sortSelect.className = 'bookmark-sort';
+  sortSelect.innerHTML = '<option value="newest">📅 最新优先</option><option value="oldest">📅 最早优先</option><option value="alpha-asc">🔤 标题 A-Z</option><option value="alpha-desc">🔤 标题 Z-A</option><option value="folder">📁 按文件夹</option>';
+  sortSelect.value = sortVal;
+  toolbar.appendChild(searchInput);
+  toolbar.appendChild(sortSelect);
+  container.appendChild(toolbar);
+
+  /* Filter */
+  const q = searchVal.toLowerCase();
+  let filtered = bookmarks;
+  if (q) {
+    filtered = bookmarks.filter(b =>
+      (b.title && b.title.toLowerCase().includes(q)) ||
+      (b.url && b.url.toLowerCase().includes(q)) ||
+      (b.folder && b.folder.toLowerCase().includes(q))
+    );
+  }
+
+  /* Sort */
+  const sorted = [...filtered].sort((a, b) => {
+    switch (sortVal) {
+      case 'oldest': return (a.createdAt || 0) - (b.createdAt || 0);
+      case 'alpha-asc': return (a.title || '').localeCompare(b.title || '');
+      case 'alpha-desc': return (b.title || '').localeCompare(a.title || '');
+      case 'folder': return ((a.folder || '') + (a.title || '')).localeCompare((b.folder || '') + (b.title || ''));
+      default: return (b.createdAt || 0) - (a.createdAt || 0);
+    }
+  });
+
+  /* Group by folder */
+  const groups = {};
+  sorted.forEach(b => {
+    const f = b.folder || '';
+    if (!groups[f]) groups[f] = [];
+    groups[f].push(b);
+  });
+  const folderOrder = Object.keys(groups).sort((a, b) => {
+    if (!a && b) return 1;
+    if (a && !b) return -1;
+    return a.localeCompare(b);
+  });
+
+  /* Render */
   const list = document.createElement('div');
   list.className = 'bookmark-list';
   const selected = new Set();
-  bookmarks.forEach(b => {
+
+  function createItem(b) {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
-    const favicon = (b.url && b.url.startsWith('http')) ? `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32` : '';
+    const favicon = (b.url && b.url.startsWith('http'))
+      ? `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32`
+      : '';
     item.innerHTML = `
       ${batchMode ? `<input type="checkbox" class="batch-check" data-id="${b.id}" style="flex-shrink:0;width:16px;height:16px">` : ''}
       <span class="favicon">${favicon ? `<img src="${favicon}" width="16" height="16" onerror="this.style.display='none'" style="border-radius:2px">` : '📌'}</span>
@@ -675,13 +781,32 @@ function renderBookmarks(container, bookmarks, callbacks, batchMode) {
         if (e.target.closest('.del-btn') || e.target.closest('.batch-check')) return;
         if (callbacks.onOpenUrl) {
           callbacks.onOpenUrl(b.url);
+          if (callbacks.closeModal) callbacks.closeModal();
         } else {
           window.open(b.url, '_blank');
         }
       };
     }
-    list.appendChild(item);
+    return item;
+  }
+
+  folderOrder.forEach(folder => {
+    const items = groups[folder];
+    if (folder) {
+      const group = document.createElement('details');
+      group.className = 'bookmark-group';
+      group.open = true;
+      const summary = document.createElement('summary');
+      summary.className = 'bookmark-group-header';
+      summary.textContent = `📁 ${folder}（${items.length}）`;
+      group.appendChild(summary);
+      items.forEach(b => group.appendChild(createItem(b)));
+      list.appendChild(group);
+    } else {
+      items.forEach(b => list.appendChild(createItem(b)));
+    }
   });
+
   if (batchMode) {
     const bar = document.createElement('div');
     bar.style.cssText = 'display:flex;gap:8px;padding:8px 0;flex-wrap:wrap;';
@@ -692,7 +817,12 @@ function renderBookmarks(container, bookmarks, callbacks, batchMode) {
     selectAllBtn.onclick = () => {
       const cbs = list.querySelectorAll('.batch-check');
       const allChecked = [...cbs].every(cb => cb.checked);
-      cbs.forEach(cb => { cb.checked = !allChecked; if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id); });
+      cbs.forEach(cb => {
+        cb.checked = !allChecked;
+        const id = Number(cb.dataset.id);
+        if (cb.checked) selected.add(id);
+        else selected.delete(id);
+      });
       selectAllBtn.textContent = allChecked ? '全选' : '取消全选';
     };
     delSelectedBtn.onclick = async () => {
@@ -707,6 +837,9 @@ function renderBookmarks(container, bookmarks, callbacks, batchMode) {
     list.insertBefore(bar, list.firstChild);
   }
   container.appendChild(list);
+
+  searchInput.oninput = () => renderBookmarks(container, bookmarks, callbacks, batchMode);
+  sortSelect.onchange = () => renderBookmarks(container, bookmarks, callbacks, batchMode);
 }
 
 /* ─── File Upload ─── */

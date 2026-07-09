@@ -62,7 +62,7 @@ async function main() {
   });
 
   await test('Bookmark modal', async () => {
-    await page.click('#bookmarkBtn');
+    await page.click('#qsBookmarkBtn');
     await page.waitForSelector('#modalOverlay', { timeout: 3000 });
     await page.click('#modalCloseBtn');
   });

@@ -1,14 +1,39 @@
-const db = new Dexie('AIBrowser');
+let db;
+export let dbReady = false;
 
-db.version(1).stores({
-  modules: 'id, title, enabled, position',
-  layout: 'id',
-  bookmarks: '++id, url, title, tags, createdAt',
-  searchResults: '++id, query, savedAt',
-  chatHistory: '++id, moduleId, createdAt',
-  files: '++id, fileName, fileType, createdAt',
-  settings: 'key'
-});
+try {
+  db = new Dexie('AIBrowser');
+  db.version(1).stores({
+    modules: 'id, title, enabled, position',
+    layout: 'id',
+    bookmarks: '++id, url, title, tags, createdAt',
+    searchResults: '++id, query, savedAt',
+    chatHistory: '++id, moduleId, createdAt',
+    files: '++id, fileName, fileType, createdAt',
+    settings: 'key'
+  });
+  db.version(2).stores({
+    modules: 'id, title, enabled, position',
+    layout: 'id',
+    bookmarks: '++id, url, title, tags, createdAt',
+    searchResults: '++id, query, savedAt',
+    chatHistory: '++id, moduleId, createdAt',
+    files: '++id, fileName, fileType, createdAt',
+    settings: 'key',
+    presets: '++id, createdAt',
+  }).upgrade(async tx => {
+    // v1→v2: presets table added, no data migration needed
+    console.log('[DB] migrated to v2');
+  });
+  dbReady = true;
+} catch (e) {
+  console.error('[DB] failed to initialize:', e);
+  dbReady = false;
+}
+
+function dbGuard() {
+  if (!dbReady) throw new Error('IndexedDB 不可用，请检查浏览器隐私设置');
+}
 
 export async function getModules() {
   return (await db.modules.toArray()).sort((a, b) => a.position - b.position);
@@ -130,4 +155,17 @@ export async function getSetting(key) {
 
 export async function setSetting(key, value) {
   await db.settings.put({ key, value });
+}
+
+export async function getPresets() {
+  return await db.presets.orderBy('createdAt').reverse().toArray();
+}
+
+export async function savePreset(preset) {
+  preset.createdAt = Date.now();
+  return await db.presets.add(preset);
+}
+
+export async function deletePreset(id) {
+  await db.presets.delete(id);
 }

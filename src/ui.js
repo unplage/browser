@@ -12,7 +12,7 @@ export function renderMarkdown(text) {
     .replace(/^-{3,}$/gm, '<hr>');
   html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
     const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
-    return `<pre><code${langClass}>${code.trim()}</code></pre>`;
+    return `<pre><code${langClass}>${escapeHtml(code.trim())}</code></pre>`;
   });
   html = html.split(/\n\n+/).map(b => {
     const t = b.trim();
@@ -158,7 +158,10 @@ export function renderGrid(modules, callbacks, hideAll = false) {
   }
   grid.innerHTML = `<div class="grid-view-title">
     <span>🧩 模块工作室 <span class="sort-hint">（拖拽卡片排序）</span></span>
-    <button class="btn-create" id="gridCreateBtn">➕ 创建模块</button>
+    <div style="display:flex;gap:6px">
+      <button class="btn-presets" id="gridPresetsBtn">📋</button>
+      <button class="btn-create" id="gridCreateBtn">➕ 创建模块</button>
+    </div>
   </div>`;
   renderQuickSearchBar(grid, callbacks);
   modules.filter(m => m.enabled).forEach(m => {
@@ -198,6 +201,8 @@ export function renderGrid(modules, callbacks, hideAll = false) {
   });
 
   $('gridCreateBtn').onclick = () => callbacks.onCreate();
+  const presetsBtn = $('gridPresetsBtn');
+  if (presetsBtn) presetsBtn.onclick = () => { if (callbacks.onPreset) callbacks.onPreset(); };
 
   if (window.Sortable) {
     Sortable.create(grid, {
@@ -245,6 +250,10 @@ export function showChat(module, messages, callbacks = {}) {
 
   const sendBtn = $('chatSend');
   const input = $('chatInput');
+  input.addEventListener('input', () => {
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+  });
   const webToggle = $('chatWebToggle');
   const uploadBtn = $('chatUploadBtn');
   const fileInput = $('chatFileInput');
@@ -463,15 +472,23 @@ export function showModal(title, bodyEl, footerEl) {
 }
 
 /* ─── Settings ─── */
-export function showSettingsPanel(apiKey, onSave) {
+export function showSettingsPanel(apiKey, onSave, extra = {}) {
   const form = document.createElement('div');
   form.className = 'settings-form';
   form.innerHTML = `
-    <label>智谱 API Key
+    <label>API Key
       <small style="color:var(--text-tertiary);font-weight:400"> — 从 <a href="https://open.bigmodel.cn" target="_blank" style="color:var(--accent)">bigmodel.cn</a> 获取</small>
     </label>
-    <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 GLM API Key">
-    <div class="hint">API Key 仅保存在本地浏览器 IndexedDB 中，每次请求直接发送至 open.bigmodel.cn</div>
+    <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 API Key">
+    <label>API 地址
+      <small style="color:var(--text-tertiary);font-weight:400"> — 默认智谱 GLM</small>
+    </label>
+    <input type="text" id="apiBaseInput" value="${escapeHtml(extra.apiBase || 'https://open.bigmodel.cn/api/paas/v4')}" placeholder="https://open.bigmodel.cn/api/paas/v4">
+    <label>默认模型
+      <small style="color:var(--text-tertiary);font-weight:400"> — 用于未指定模型的模块</small>
+    </label>
+    <input type="text" id="defaultModelInput" value="${escapeHtml(extra.defaultModel || 'glm-4.7-flash')}" placeholder="glm-4.7-flash">
+    <div class="hint">修改 API 地址可接入其他兼容 OpenAI 协议的推理服务</div>
     <label>主题模式</label>
     <select id="themeSelect" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
       <option value="light">☀️ 亮色</option>
@@ -490,7 +507,9 @@ export function showSettingsPanel(apiKey, onSave) {
   saveBtn.onclick = async () => {
     const val = $('apiKeyInput').value.trim();
     const theme = $('themeSelect').value;
-    await onSave(val, theme);
+    const apiBase = $('apiBaseInput').value.trim();
+    const defaultModel = $('defaultModelInput').value.trim();
+    await onSave(val, theme, apiBase, defaultModel);
     modal.close();
   };
   exportAllBtn.onclick = () => {
@@ -769,7 +788,7 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
 }
 
 /* ─── Module Editor ─── */
-export function showModuleEditor(module, onSave) {
+export function showModuleEditor(module, onSave, callbacks = {}) {
   const form = document.createElement('div');
   form.className = 'module-editor';
   const isCustom = !isDefaultModule(module.id);
@@ -788,9 +807,20 @@ export function showModuleEditor(module, onSave) {
     <textarea id="modPrompt">${escapeHtml(module.systemPrompt)}</textarea>
     ${isCustom ? '' : '<button class="reset-btn">↺ 恢复默认提示词</button>'}`;
   const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const saveBtn = mkPrimaryBtn('保存');
+  const savePresetBtn = mkBtn('📋 保存为预设');
   footer.appendChild(saveBtn);
+  footer.appendChild(savePresetBtn);
   const modal = showModal(`✏️ 编辑模块: ${escapeHtml(module.title)}`, form, footer);
+
+  savePresetBtn.onclick = async () => {
+    const title = $('modTitle').value.trim() || module.title;
+    const prompt = $('modPrompt').value.trim() || module.systemPrompt;
+    const model = isCustom ? ($('modModel')?.value || module.model || 'glm-4.7-flash') : 'glm-4.7-flash';
+    await callbacks.onSavePreset({ title, prompt, model });
+    showToast('预设已保存', 'success');
+  };
 
   if (!isCustom) {
     form.querySelector('.reset-btn').onclick = async () => {
@@ -890,13 +920,31 @@ export function showChatHistoryPanel(histories, currentId, icon, callbacks) {
   const container = document.createElement('div');
   container.style.cssText = 'display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto;';
 
-  function render() {
-    container.innerHTML = '';
-    if (histories.length === 0) {
-      container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无对话历史</div></div>';
+  const searchInput = document.createElement('input');
+  searchInput.type = 'text';
+  searchInput.placeholder = '🔍 搜索对话...';
+  searchInput.style.cssText = 'padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);font-size:13px;background:var(--surface-secondary);color:var(--text);outline:none;margin-bottom:4px;flex-shrink:0';
+  container.appendChild(searchInput);
+
+  function render(filter = '') {
+    const itemsContainer = container.querySelector('.history-items') || (() => {
+      const d = document.createElement('div');
+      d.className = 'history-items';
+      d.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+      container.appendChild(d);
+      return d;
+    })();
+    itemsContainer.innerHTML = '';
+    const filtered = filter ? histories.filter(h => {
+      const firstMsg = h.messages?.find(m => m.role === 'user')?.content || '';
+      const title = h.title || '';
+      return title.includes(filter) || firstMsg.includes(filter);
+    }) : histories;
+    if (filtered.length === 0) {
+      itemsContainer.innerHTML = '<div class="empty-state" style="padding:16px"><div class="text">无匹配对话</div></div>';
       return;
     }
-    histories.forEach(h => {
+    filtered.forEach(h => {
       const item = document.createElement('div');
       item.className = `history-item${h.id === currentId ? ' active' : ''}`;
       const firstMsg = h.messages?.find(m => m.role === 'user')?.content || '';
@@ -917,7 +965,7 @@ export function showChatHistoryPanel(histories, currentId, icon, callbacks) {
         if (newTitle && newTitle.trim()) {
           const updated = await callbacks.onRename(h.id, newTitle.trim());
           histories = updated;
-          render();
+          render(searchInput.value);
         }
       };
       item.querySelector('.history-del-btn').onclick = async e => {
@@ -927,17 +975,18 @@ export function showChatHistoryPanel(histories, currentId, icon, callbacks) {
         if (!ok) return;
         const updated = await callbacks.onDelete(h.id);
         histories = updated;
-        render();
+        render(searchInput.value);
       };
       item.addEventListener('click', e => {
-        if (e.target.closest('.history-del-btn')) return;
+        if (e.target.closest('.history-del-btn') || e.target.closest('.history-rename-btn')) return;
         if (h.id === currentId) return;
         callbacks.onSelect(h.id);
         modal.close();
       });
-      container.appendChild(item);
+      itemsContainer.appendChild(item);
     });
   }
+  searchInput.addEventListener('input', () => render(searchInput.value));
   render();
 
   const footer = document.createElement('div');
@@ -959,6 +1008,55 @@ export function showChatHistoryPanel(histories, currentId, icon, callbacks) {
   };
 
   const modal = showModal(`${icon} 对话历史`, container, footer);
+}
+
+/* ─── Presets ─── */
+export function showPresetPanel(presets, callbacks) {
+  const container = document.createElement('div');
+  container.style.cssText = 'display:flex;flex-direction:column;gap:6px;max-height:400px;overflow-y:auto;';
+
+  function render() {
+    container.innerHTML = '';
+    if (presets.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无预设模板</div><div class="hint">在模块编辑器中可将模块保存为模板</div></div>';
+      return;
+    }
+    presets.forEach(p => {
+      const item = document.createElement('div');
+      item.className = 'bookmark-item';
+      item.style.cursor = 'pointer';
+      const preview = p.prompt?.slice(0, 80) || '';
+      item.innerHTML = `
+        <span style="font-size:18px;flex-shrink:0">📋</span>
+        <div class="info">
+          <div class="title">${escapeHtml(p.title)}</div>
+          <div class="url" style="font-size:11px">${escapeHtml(preview)}${preview.length < (p.prompt?.length || 0) ? '…' : ''}</div>
+        </div>
+        <button class="preset-use-btn" data-id="${p.id}">使用</button>
+        <button class="del-btn" data-id="${p.id}">✕</button>`;
+      item.querySelector('.preset-use-btn').onclick = async e => {
+        e.stopPropagation();
+        if (callbacks.onUse) callbacks.onUse(p);
+        modal.close();
+      };
+      item.querySelector('.del-btn').onclick = async e => {
+        e.stopPropagation();
+        const ok = await showConfirm('确认删除此预设？');
+        if (!ok) return;
+        await callbacks.onDelete(p.id);
+        presets = presets.filter(x => x.id !== p.id);
+        render();
+      };
+      item.addEventListener('click', e => {
+        if (e.target.closest('.del-btn') || e.target.closest('.preset-use-btn')) return;
+        if (callbacks.onUse) callbacks.onUse(p);
+        modal.close();
+      });
+      container.appendChild(item);
+    });
+  }
+  render();
+  const modal = showModal('📋 预设模板', container);
 }
 
 /* ─── In-App Browser ─── */

@@ -1,6 +1,14 @@
 import { getSetting } from './db.js';
 
-const BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
+const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
+
+async function getApiBase() {
+  return await getSetting('apiBase') || DEFAULT_BASE_URL;
+}
+
+async function getDefaultModel() {
+  return await getSetting('defaultModel') || 'glm-4.7-flash';
+}
 
 function nowContext() {
   const d = new Date();
@@ -19,8 +27,11 @@ async function request(messages, opts = {}) {
   const apiKey = await getApiKey();
   if (!apiKey) throw new Error('请先在设置中配置 API Key');
 
+  const baseUrl = await getApiBase();
+  const defaultModel = await getDefaultModel();
+
   const body = {
-    model: opts.model || 'glm-4.7-flash',
+    model: opts.model || defaultModel,
     messages,
     stream: !!opts.stream,
     do_sample: true,
@@ -36,7 +47,7 @@ async function request(messages, opts = {}) {
     }];
   }
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
+  const res = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -33,6 +33,11 @@ const state = {
 };
 
 (async function init() {
+  if (!db.dbReady) {
+    document.body.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;font-family:system-ui,sans-serif;color:var(--text-secondary);background:var(--bg);padding:20px;text-align:center"><span style="font-size:48px">⚠️</span><h2 style="font-weight:600;font-size:18px;color:var(--text)">IndexedDB 不可用</h2><p style="font-size:14px;max-width:400px;line-height:1.6">请确保浏览器未启用隐私模式，且未禁用 IndexedDB。<br>如果问题持续，请尝试更新浏览器。</p></div>`;
+    return;
+  }
+
   try {
     state.modules = await mods.getModuleList();
   } catch (e) {
@@ -54,8 +59,14 @@ const state = {
   renderAll();
 
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js');
+    navigator.serviceWorker.register('sw.js').catch(e => console.warn('[SW] 注册失败:', e));
   }
+
+  window.addEventListener('beforeunload', () => {
+    if (state.currentChatId && state.currentMessages.length > 0) {
+      db.saveChatHistoryById(state.currentChatId, state.currentMessages);
+    }
+  });
 
   updateOnlineStatus();
   window.addEventListener('online', updateOnlineStatus);
@@ -76,6 +87,7 @@ function renderAll() {
     onCreate: onModuleCreate,
     onDelete: onModuleDelete,
     onBookmark: openBookmarks,
+    onPreset: openPresets,
   }, state.hideAll);
   if (state.currentModuleId && active) {
     loadAndShowChat(active.id);
@@ -359,6 +371,10 @@ async function onModuleEdit(id) {
       state.currentModuleId = mid;
       renderAll();
     }
+  }, {
+    onSavePreset: async (preset) => {
+      await db.savePreset(preset);
+    },
   });
 }
 
@@ -379,6 +395,20 @@ async function onModuleCreate(title, icon, prompt, model) {
   mods.invalidateCache();
   state.modules = await mods.getModuleList();
   renderAll();
+}
+
+async function openPresets() {
+  const presets = await db.getPresets();
+  ui.showPresetPanel(presets, {
+    onUse: async (preset) => {
+      ui.showCreateModule(async (title, icon, prompt, model) => {
+        await onModuleCreate(title || preset.title, icon || '📋', prompt || preset.prompt, model || preset.model);
+      });
+    },
+    onDelete: async (id) => {
+      await db.deletePreset(id);
+    },
+  });
 }
 
 function showCreateModuleDialog() {
@@ -465,17 +495,18 @@ async function openFileUpload() {
 async function openSettings() {
   const key = await db.getSetting('apiKey');
   const theme = await db.getSetting('theme') || 'light';
-  ui.showSettingsPanel(key, async (val, themeVal) => {
-    if (val) {
-      await db.setSetting('apiKey', val);
-    }
+  const apiBase = await db.getSetting('apiBase');
+  const defaultModel = await db.getSetting('defaultModel');
+  ui.showSettingsPanel(key, async (val, themeVal, apiBaseVal, defaultModelVal) => {
+    if (val) await db.setSetting('apiKey', val);
     if (themeVal) {
       await db.setSetting('theme', themeVal);
       ui.applyTheme(themeVal);
     }
+    if (apiBaseVal) await db.setSetting('apiBase', apiBaseVal);
+    if (defaultModelVal) await db.setSetting('defaultModel', defaultModelVal);
     ui.showToast('已保存', 'success');
-  });
-  // set the theme select to current value after panel renders
+  }, { apiBase, defaultModel });
   setTimeout(() => {
     const sel = ui.$('themeSelect');
     if (sel) sel.value = theme;

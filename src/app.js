@@ -20,7 +20,7 @@ function debounce(fn, ms) {
   };
 }
 
-const VERSION = 'v8';
+const VERSION = 'v9';
 
 const state = {
   modules: [],
@@ -42,6 +42,15 @@ const state = {
   const DEFAULT_COUNT = 13;
   ui.updateModuleCount(state.modules.length, DEFAULT_COUNT);
   ui.updateSidebarVersion(VERSION);
+
+  const savedTheme = await db.getSetting('theme') || 'light';
+  ui.applyTheme(savedTheme);
+  if (savedTheme === 'system') {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      ui.applyTheme('system');
+    });
+  }
+
   renderAll();
 
   if ('serviceWorker' in navigator) {
@@ -66,6 +75,7 @@ function renderAll() {
     onReorder: onModuleReorder,
     onCreate: onModuleCreate,
     onDelete: onModuleDelete,
+    onBookmark: openBookmarks,
   }, state.hideAll);
   if (state.currentModuleId && active) {
     loadAndShowChat(active.id);
@@ -138,7 +148,6 @@ function bindGlobalEvents() {
     renderAll();
   });
 
-  ui.$('bookmarkBtn').addEventListener('click', openBookmarks);
   ui.$('savedResultsBtn').addEventListener('click', openSavedResults);
   ui.$('uploadBtn').addEventListener('click', openFileUpload);
   ui.$('settingsBtn').addEventListener('click', openSettings);
@@ -455,10 +464,20 @@ async function openFileUpload() {
 /* ─── Settings ─── */
 async function openSettings() {
   const key = await db.getSetting('apiKey');
-  ui.showSettingsPanel(key, async (val) => {
+  const theme = await db.getSetting('theme') || 'light';
+  ui.showSettingsPanel(key, async (val, themeVal) => {
     if (val) {
       await db.setSetting('apiKey', val);
-      ui.showToast('API Key 已保存', 'success');
     }
+    if (themeVal) {
+      await db.setSetting('theme', themeVal);
+      ui.applyTheme(themeVal);
+    }
+    ui.showToast('已保存', 'success');
   });
+  // set the theme select to current value after panel renders
+  setTimeout(() => {
+    const sel = ui.$('themeSelect');
+    if (sel) sel.value = theme;
+  }, 50);
 }

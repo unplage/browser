@@ -58,6 +58,87 @@ export function renderSidebar(modules, activeId, onModuleClick, onModuleToggle) 
   });
 }
 
+/* ─── Theme ─── */
+export function applyTheme(mode) {
+  if (mode === 'dark') {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else if (mode === 'light') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    // system
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (prefersDark) document.documentElement.setAttribute('data-theme', 'dark');
+    else document.documentElement.removeAttribute('data-theme');
+  }
+}
+
+/* ─── Quick Search Bar ─── */
+const SEARCH_ENGINES = [
+  { label: '百度', url: q => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}` },
+  { label: 'Bing', url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}` },
+  { label: 'Google', url: q => `https://www.google.com/search?q=${encodeURIComponent(q)}` },
+  { label: 'DuckDuckGo', url: q => `https://duckduckgo.com/?q=${encodeURIComponent(q)}` },
+];
+
+export function renderQuickSearchBar(grid, callbacks) {
+  const bar = document.createElement('div');
+  bar.className = 'quick-search';
+  const sel = document.createElement('select');
+  sel.id = 'qsEngine';
+  SEARCH_ENGINES.forEach((eng, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `🌐 ${eng.label}`;
+    sel.appendChild(opt);
+  });
+
+  const input = document.createElement('input');
+  input.id = 'qsInput';
+  input.type = 'text';
+  input.placeholder = '输入网址或搜索词...';
+
+  const goBtn = document.createElement('button');
+  goBtn.id = 'qsGo';
+  goBtn.className = 'qs-btn';
+  goBtn.textContent = '🚀';
+
+  const bmBtn = document.createElement('button');
+  bmBtn.id = 'qsBookmarkBtn';
+  bmBtn.className = 'qs-bookmark-btn';
+  bmBtn.title = '书签管理';
+  bmBtn.setAttribute('aria-label', '书签管理');
+  bmBtn.textContent = '📑';
+  bmBtn.onclick = () => {
+    if (callbacks.onBookmark) callbacks.onBookmark();
+  };
+
+  bar.appendChild(sel);
+  bar.appendChild(input);
+  bar.appendChild(goBtn);
+  bar.appendChild(bmBtn);
+  grid.insertBefore(bar, grid.firstChild);
+
+  goBtn.onclick = () => handleQuickSearch(input, sel);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleQuickSearch(input, sel);
+  });
+}
+
+function handleQuickSearch(input, sel) {
+  const text = input.value.trim();
+  if (!text) return;
+  const idx = parseInt(sel.value, 10);
+  // detect URL
+  if (/^https?:\/\/./i.test(text) || /^[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(\/|$)/.test(text)) {
+    const url = text.startsWith('http') ? text : `https://${text}`;
+    showBrowserView(url, () => showView('gridView'));
+  } else {
+    const engine = SEARCH_ENGINES[idx];
+    window.open(engine.url(text), '_blank');
+  }
+  input.value = '';
+}
+
 /* ─── Grid ─── */
 export function renderGrid(modules, callbacks, hideAll = false) {
   const grid = $('gridView');
@@ -71,12 +152,14 @@ export function renderGrid(modules, callbacks, hideAll = false) {
       const btn = $('hideAllBtn');
       if (btn) btn.click();
     };
+    renderQuickSearchBar(grid, callbacks);
     return;
   }
   grid.innerHTML = `<div class="grid-view-title">
     <span>🧩 模块工作室 <span class="sort-hint">（拖拽卡片排序）</span></span>
     <button class="btn-create" id="gridCreateBtn">➕ 创建模块</button>
   </div>`;
+  renderQuickSearchBar(grid, callbacks);
   modules.filter(m => m.enabled).forEach(m => {
     const card = document.createElement('div');
     card.className = 'module-card';
@@ -387,7 +470,13 @@ export function showSettingsPanel(apiKey, onSave) {
       <small style="color:var(--text-tertiary);font-weight:400"> — 从 <a href="https://open.bigmodel.cn" target="_blank" style="color:var(--accent)">bigmodel.cn</a> 获取</small>
     </label>
     <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 GLM API Key">
-    <div class="hint">API Key 仅保存在本地浏览器 IndexedDB 中，每次请求直接发送至 open.bigmodel.cn</div>`;
+    <div class="hint">API Key 仅保存在本地浏览器 IndexedDB 中，每次请求直接发送至 open.bigmodel.cn</div>
+    <label>主题模式</label>
+    <select id="themeSelect" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
+      <option value="light">☀️ 亮色</option>
+      <option value="dark">🌙 暗色</option>
+      <option value="system">💻 跟随系统</option>
+    </select>`;
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const saveBtn = mkPrimaryBtn('保存');
@@ -399,7 +488,8 @@ export function showSettingsPanel(apiKey, onSave) {
   const modal = showModal('⚙️ 设置', form, footer);
   saveBtn.onclick = async () => {
     const val = $('apiKeyInput').value.trim();
-    await onSave(val);
+    const theme = $('themeSelect').value;
+    await onSave(val, theme);
     modal.close();
   };
   exportAllBtn.onclick = () => {

@@ -20,7 +20,7 @@ async function request(messages, opts = {}) {
   if (!apiKey) throw new Error('请先在设置中配置 API Key');
 
   const body = {
-    model: 'glm-4.7-flash',
+    model: opts.model || 'glm-4.7-flash',
     messages,
     stream: !!opts.stream,
     do_sample: true,
@@ -143,15 +143,30 @@ export async function chatWithModule(systemPrompt, messages, onChunk, opts = {})
   const dateContext = nowContext();
   let finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }];
 
+  let msgCopy = messages;
+  if (opts.imageData && opts.model?.includes('V')) {
+    const last = msgCopy[msgCopy.length - 1];
+    if (last && last.role === 'user') {
+      msgCopy = msgCopy.slice(0, -1);
+      msgCopy.push({
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: opts.imageData } },
+          { type: 'text', text: last.content },
+        ],
+      });
+    }
+  }
+
   if (opts.webSearch) {
     const enhancedSystemPrompt = `${dateContext}\n\n${systemPrompt}\n\n你已经通过 web_search 工具获取了最新的联网搜索结果。请将网络搜索到的实时信息与你的训练知识相结合来回答用户的问题。对于时效性强的内容优先采用网络搜索结果，对于背景知识和理论分析可以充分运用你的知识库。请在回答中适当标注信息来源是「网络搜索」还是「知识库」。`;
-    finalMessages = [{ role: 'system', content: enhancedSystemPrompt }, ...messages];
+    finalMessages = [{ role: 'system', content: enhancedSystemPrompt }, ...msgCopy];
   } else {
-    finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }, ...messages];
+    finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }, ...msgCopy];
   }
 
   return await callGLM(
     finalMessages,
-    { stream: true, onChunk, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
+    { stream: true, onChunk, model: opts.model, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
   );
 }

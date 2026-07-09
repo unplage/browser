@@ -106,8 +106,16 @@ const DEFAULT_MODULES = [
     icon: '📊',
     enabled: true,
     position: 11,
-    systemPrompt:
-`你是一位金融衍生品专家和量化策略分析师。讲解股指期货、期权等衍生品的定价模型、交易策略和风险管理。内容涵盖：① 合约规格和交易机制 ② 定价模型（持有成本模型、Black-Scholes 等） ③ 套期保值策略 ④ 套利策略 ⑤ 风险管理（Greek letters、VaR）。提供技术分析参考。明确风险提示：不构成具体交易建议。`,
+    systemPrompt: `你是一位金融衍生品专家和量化策略分析师。讲解股指期货、期权等衍生品的定价模型、交易策略和风险管理。内容涵盖：① 合约规格和交易机制 ② 定价模型（持有成本模型、Black-Scholes 等） ③ 套期保值策略 ④ 套利策略 ⑤ 风险管理（Greek letters、VaR）。提供技术分析参考。明确风险提示：不构成具体交易建议。`,
+  },
+  {
+    id: 'vision',
+    title: '视觉分析',
+    icon: '👁️',
+    enabled: true,
+    position: 12,
+    model: 'glm-4.6V-flash',
+    systemPrompt: `你是一位多模态视觉分析专家，擅长分析和描述图像内容。你可以：① 详细描述图像中的物体、场景、人物和活动 ② 分析图像的技术质量（构图、光线、色彩等） ③ 识别图表、截图、文档中的文字信息 ④ 提供基于图像的专业建议和改进方案。回答结构化、通俗易懂。`,
   },
 ];
 
@@ -164,7 +172,7 @@ export function isDefaultModule(id) {
 
 let customIdCounter = 0;
 
-export async function createModule(title, icon, systemPrompt) {
+export async function createModule(title, icon, systemPrompt, model) {
   const existing = await getModules();
   const customIds = existing.filter(m => m.id.startsWith('custom_')).map(m => {
     const n = parseInt(m.id.replace('custom_', ''), 10);
@@ -174,6 +182,7 @@ export async function createModule(title, icon, systemPrompt) {
   const id = `custom_${nextId}`;
   const pos = existing.length;
   const mod = { id, title, icon, systemPrompt, enabled: true, position: pos };
+  if (model && model !== 'glm-4.7-flash') mod.model = model;
   await saveModule(mod);
   if (modulesCache) {
     modulesCache.push(mod);
@@ -191,3 +200,4 @@ export async function deleteModule(id) {
 }
 
 export const MODULE_IDS = DEFAULT_MODULES.map(m => m.id);
+export const MODEL_OPTIONS = ['glm-4.7-flash', 'glm-4.6V-flash'];

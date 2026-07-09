@@ -9,6 +9,7 @@ const state = {
   currentMessages: [],
   abortController: null,
   hideAll: false,
+  pendingImage: null,
 };
 
 (async function init() {
@@ -18,7 +19,7 @@ const state = {
     state.modules = [];
   }
 
-  const DEFAULT_COUNT = 12;
+  const DEFAULT_COUNT = 13;
   ui.updateModuleCount(state.modules.length, DEFAULT_COUNT);
   renderAll();
 
@@ -33,14 +34,14 @@ function renderAll() {
   const active = state.modules.find(m => m.id === state.currentModuleId);
   const displayedModules = state.hideAll ? [] : state.modules;
   ui.renderSidebar(displayedModules, state.currentModuleId, onModuleClick);
-  ui.renderGrid(state.hideAll ? [] : state.modules, {
+  ui.renderGrid(state.modules, {
     onOpen: onModuleClick,
     onEdit: onModuleEdit,
     onToggle: onModuleToggle,
     onReorder: onModuleReorder,
     onCreate: onModuleCreate,
     onDelete: onModuleDelete,
-  });
+  }, state.hideAll);
   if (state.currentModuleId && active) {
     loadAndShowChat(active.id);
   } else {
@@ -122,12 +123,16 @@ async function loadAndShowChat(id) {
 
   const chat = await db.getChatHistory(id);
   state.currentMessages = chat ? chat.messages : [];
+  state.pendingImage = null;
 
   ui.showChat(mod, state.currentMessages, {
     onSend: (text, useWeb) => handleSend(text, useWeb),
     onBack: handleChatBack,
     onMenu: () => onModuleEdit(id),
     onClearChat: () => handleClearChat(id),
+    onImage: (dataUrl) => {
+      state.pendingImage = dataUrl;
+    },
   });
 }
 
@@ -142,7 +147,8 @@ async function handleSend(text, useWeb) {
 
   const userMsg = useWeb ? `【需要联网搜索最新信息】${text}` : text;
   state.currentMessages.push({ role: 'user', content: userMsg });
-  ui.appendMessage('user', text);
+  ui.appendMessage('user', text, false, state.pendingImage);
+  ui.clearPendingImage();
 
   const msgEl = ui.appendMessage('assistant', '', true);
   let full = '';
@@ -151,12 +157,19 @@ async function handleSend(text, useWeb) {
     const result = await api.chatWithModule(mod.systemPrompt, state.currentMessages, (chunk, fullContent) => {
       full = fullContent;
       ui.updateStreamingMessage(msgEl, fullContent);
-    }, useWeb ? { webSearch: true, searchQuery: text } : {});
+    }, {
+      model: mod.model,
+      webSearch: useWeb,
+      searchQuery: useWeb ? text : undefined,
+      imageData: state.pendingImage,
+    });
     ui.stopStreaming(msgEl);
     state.currentMessages.push({ role: 'assistant', content: result });
+    state.pendingImage = null;
   } catch (e) {
     ui.stopStreaming(msgEl);
     ui.updateStreamingMessage(msgEl, `\n\n**错误**: ${e.message}`);
+    state.pendingImage = null;
   }
 
   state.abortController = null;
@@ -213,16 +226,16 @@ async function onModuleReorder(ids) {
   state.modules = await mods.getModuleList();
 }
 
-async function onModuleCreate(title, icon, prompt) {
-  const mod = await mods.createModule(title, icon, prompt);
+async function onModuleCreate(title, icon, prompt, model) {
+  const mod = await mods.createModule(title, icon, prompt, model);
   mods.invalidateCache();
   state.modules = await mods.getModuleList();
   renderAll();
 }
 
 function showCreateModuleDialog() {
-  ui.showCreateModule(async (title, icon, prompt) => {
-    await onModuleCreate(title, icon, prompt);
+  ui.showCreateModule(async (title, icon, prompt, model) => {
+    await onModuleCreate(title, icon, prompt, model);
   });
 }
 

@@ -17,8 +17,8 @@ async function main() {
   });
   page.on('pageerror', err => console.log('  [PAGE ERROR] ' + err.message));
 
-  await page.goto(URL, { waitUntil: 'networkidle', timeout: 30000 });
-  await page.waitForTimeout(1000);
+  await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(2000);
 
   await test('Page title', async () => {
     const t = await page.title();
@@ -29,20 +29,20 @@ async function main() {
     await page.waitForSelector('#topbar', { timeout: 3000 });
   });
 
-  await test('Sidebar with 12 nav items', async () => {
+  await test('Sidebar with 13 nav items', async () => {
     const n = (await page.$$('.nav-item')).length;
-    if (n !== 12) throw new Error('got ' + n);
+    if (n !== 13) throw new Error('got ' + n);
   });
 
-  await test('Grid with 12 module cards', async () => {
+  await test('Grid with 13 module cards', async () => {
     await page.waitForSelector('.module-card', { timeout: 5000 });
     const n = (await page.$$('.module-card')).length;
-    if (n !== 12) throw new Error('got ' + n);
+    if (n !== 13) throw new Error('got ' + n);
   });
 
-  await test('Status bar shows 12/12', async () => {
+  await test('Status bar shows 13/13', async () => {
     const t = await page.textContent('#moduleCount');
-    if (!t.includes('12/12')) throw new Error('got "' + t + '"');
+    if (!t.includes('13/13')) throw new Error('got "' + t + '"');
   });
 
   await test('Dexie.js loaded', async () => {

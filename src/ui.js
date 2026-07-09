@@ -39,10 +39,22 @@ export function renderSidebar(modules, activeId, onModuleClick) {
 }
 
 /* ─── Grid ─── */
-export function renderGrid(modules, callbacks) {
+export function renderGrid(modules, callbacks, hideAll = false) {
   const grid = $('gridView');
+  if (hideAll) {
+    grid.innerHTML = `<div class="grid-view-title" style="border:none;margin:0">
+      <span style="color:var(--text-tertiary)">👁️ 所有模块已隐藏</span>
+      <button class="restore-btn" id="gridRestoreAllBtn">🔁 全部显示</button>
+    </div>`;
+    const restoreBtn = grid.querySelector('#gridRestoreAllBtn');
+    if (restoreBtn) restoreBtn.onclick = () => {
+      const btn = $('hideAllBtn');
+      if (btn) btn.click();
+    };
+    return;
+  }
   grid.innerHTML = `<div class="grid-view-title">
-    <span>🧩 模块工作室</span>
+    <span>🧩 模块工作室 <span class="sort-hint">（拖拽卡片排序）</span></span>
     <button class="btn-create" id="gridCreateBtn">➕ 创建模块</button>
   </div>`;
   modules.filter(m => m.enabled).forEach(m => {
@@ -51,6 +63,7 @@ export function renderGrid(modules, callbacks) {
     card.dataset.id = m.id;
     card.innerHTML = `
       <div class="module-card-header">
+        <span class="drag-handle">⠿</span>
         <span class="icon">${m.icon}</span>
         <span class="title">${escapeHtml(m.title)}</span>
       </div>
@@ -124,14 +137,23 @@ export function showChat(module, messages, callbacks = {}) {
   const webToggle = $('chatWebToggle');
   const uploadBtn = $('chatUploadBtn');
   const fileInput = $('chatFileInput');
+  let previewContainer = $('chatImagePreview');
+  if (!previewContainer) {
+    previewContainer = document.createElement('div');
+    previewContainer.id = 'chatImagePreview';
+    previewContainer.style.display = 'none';
+    $('chatInputArea').insertBefore(previewContainer, $('chatInput'));
+  }
+  previewContainer.style.display = 'none';
+  previewContainer.innerHTML = '';
   webToggle.classList.remove('active');
   sendBtn.onclick = () => {
     const text = input.value.trim();
-    if (!text) return;
+    if (!text && !previewContainer.querySelector('img')) return;
     const useWeb = webToggle.classList.contains('active');
     input.value = '';
     input.style.height = 'auto';
-    if (callbacks.onSend) callbacks.onSend(text, useWeb);
+    if (callbacks.onSend) callbacks.onSend(text || '请分析这张图片', useWeb);
   };
   webToggle.onclick = () => {
     webToggle.classList.toggle('active');
@@ -141,13 +163,24 @@ export function showChat(module, messages, callbacks = {}) {
     const file = fileInput.files?.[0];
     if (!file) return;
     fileInput.value = '';
-    const reader = new FileReader();
-    reader.onload = () => {
-      const content = reader.result;
-      const text = `请分析以下文件内容：\n\n文件名: ${file.name}\n\n\`\`\`\n${content}\n\`\`\``;
-      if (callbacks.onSend) callbacks.onSend(text, false);
-    };
-    reader.readAsText(file);
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        previewContainer.innerHTML = `<div class="image-preview"><img src="${reader.result}" alt="preview"><button class="remove-image-btn" id="removeImageBtn">✕</button></div>`;
+        previewContainer.style.display = 'block';
+        $('removeImageBtn').onclick = () => { previewContainer.style.display = 'none'; previewContainer.innerHTML = ''; if (callbacks.onImage) callbacks.onImage(null); };
+        if (callbacks.onImage) callbacks.onImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const content = reader.result;
+        const text = `请分析以下文件内容：\n\n文件名: ${file.name}\n\n\`\`\`\n${content}\n\`\`\``;
+        if (callbacks.onSend) callbacks.onSend(text, false);
+      };
+      reader.readAsText(file);
+    }
   };
   input.onkeydown = e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendBtn.click(); }
@@ -167,7 +200,7 @@ export function showChat(module, messages, callbacks = {}) {
   };
 }
 
-export function appendMessage(role, content, streaming = false) {
+export function appendMessage(role, content, streaming = false, imageData = null) {
   const container = $('chatMessages');
   const empty = container.querySelector('.empty-state');
   if (empty) empty.remove();
@@ -176,10 +209,13 @@ export function appendMessage(role, content, streaming = false) {
   msg.className = `msg ${role}${streaming ? ' streaming' : ''}`;
   const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const avatar = role === 'user' ? '👤' : currentChatModule?.icon || '🤖';
-  const body = role === 'assistant' ? renderMarkdown(content) : escapeHtml(content);
+  let body = role === 'assistant' ? renderMarkdown(content) : escapeHtml(content);
+  if (imageData && role === 'user') {
+    body = `<img src="${imageData}" class="msg-image" alt="用户上传的图片">${body ? '<br>' + body : ''}`;
+  }
   msg.innerHTML = `
     <div class="msg-avatar">${avatar}</div>
-    <div class="msg-bubble">${streaming && !content ? '<span class="thinking-text">思考中...</span>' : body}</div>
+    <div class="msg-bubble">${streaming && !content && !imageData ? '<span class="thinking-text">思考中...</span>' : body}</div>
     <div class="msg-time">${time}</div>`;
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
@@ -193,6 +229,11 @@ export function updateStreamingMessage(msgEl, fullContent) {
 
 export function stopStreaming(msgEl) {
   msgEl.classList.remove('streaming');
+}
+
+export function clearPendingImage() {
+  const prev = $('chatImagePreview');
+  if (prev) { prev.style.display = 'none'; prev.innerHTML = ''; }
 }
 
 /* ─── Search Results ─── */
@@ -444,11 +485,17 @@ export function showModuleEditor(module, onSave) {
   const form = document.createElement('div');
   form.className = 'module-editor';
   const isCustom = !isDefaultModule(module.id);
+  const row = isCustom ? `<label>模型</label>
+    <select id="modModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
+      <option value="glm-4.7-flash" ${(!module.model || module.model === 'glm-4.7-flash') ? 'selected' : ''}>glm-4.7-flash（默认）</option>
+      <option value="glm-4.6V-flash" ${module.model === 'glm-4.6V-flash' ? 'selected' : ''}>glm-4.6V-flash（视觉）</option>
+    </select>` : '';
   form.innerHTML = `
     <label>模块名称</label>
     <input type="text" id="modTitle" value="${escapeHtml(module.title)}">
     <label>图标 (Emoji)</label>
     <input type="text" id="modIcon" value="${module.icon}" style="width:70px">
+    ${row}
     <label>系统提示词 (System Prompt)</label>
     <textarea id="modPrompt">${escapeHtml(module.systemPrompt)}</textarea>
     ${isCustom ? '' : '<button class="reset-btn">↺ 恢复默认提示词</button>'}`;
@@ -464,11 +511,17 @@ export function showModuleEditor(module, onSave) {
     };
   }
   saveBtn.onclick = async () => {
-    await onSave(module.id, {
+    const changes = {
       title: $('modTitle').value.trim(),
       icon: $('modIcon').value.trim(),
       systemPrompt: $('modPrompt').value.trim(),
-    });
+    };
+    if (isCustom) {
+      const model = $('modModel').value;
+      if (model !== 'glm-4.7-flash') changes.model = model;
+      else delete changes.model;
+    }
+    await onSave(module.id, changes);
     modal.close();
   };
 }
@@ -482,6 +535,11 @@ export function showCreateModule(onCreate) {
     <input type="text" id="newModTitle" placeholder="例如：AI 绘画助手" autofocus>
     <label>图标 (Emoji)</label>
     <input type="text" id="newModIcon" value="🤖" style="width:70px">
+    <label>模型</label>
+    <select id="newModModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
+      <option value="glm-4.7-flash">glm-4.7-flash（默认，文本）</option>
+      <option value="glm-4.6V-flash">glm-4.6V-flash（视觉，支持图片）</option>
+    </select>
     <label>系统提示词 (System Prompt)</label>
     <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;
   const footer = document.createElement('div');
@@ -493,15 +551,16 @@ export function showCreateModule(onCreate) {
     const title = $('newModTitle').value.trim();
     const icon = $('newModIcon').value.trim() || '🤖';
     const prompt = $('newModPrompt').value.trim();
+    const model = $('newModModel').value;
     if (!title) { alert('请输入模块名称'); $('newModTitle').focus(); return; }
     if (!prompt) { alert('请输入系统提示词'); $('newModPrompt').focus(); return; }
-    await onCreate(title, icon, prompt);
+    await onCreate(title, icon, prompt, model);
     modal.close();
   };
 }
 
 function isDefaultModule(id) {
-  const defaults = ['poetry','drug','english','reading','programming','leisure','baby','philosophy','tech','news','finance','futures'];
+  const defaults = ['poetry','drug','english','reading','programming','leisure','baby','philosophy','tech','news','finance','futures','vision'];
   return defaults.includes(id);
 }
 

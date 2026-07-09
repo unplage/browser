@@ -514,7 +514,6 @@ export function showModuleEditor(module, onSave) {
     <select id="modModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
       <option value="glm-4.7-flash" ${(!module.model || module.model === 'glm-4.7-flash') ? 'selected' : ''}>glm-4.7-flash（默认）</option>
       <option value="glm-4.6v-flash" ${module.model === 'glm-4.6v-flash' ? 'selected' : ''}>glm-4.6v-flash（视觉）</option>
-      <option value="glm-4v-flash" ${module.model === 'glm-4v-flash' ? 'selected' : ''}>glm-4v-flash（视觉-旧版）</option>
     </select>` : '';
   form.innerHTML = `
     <label>模块名称</label>
@@ -565,7 +564,6 @@ export function showCreateModule(onCreate) {
     <select id="newModModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
       <option value="glm-4.7-flash">glm-4.7-flash（默认，文本）</option>
       <option value="glm-4.6v-flash">glm-4.6v-flash（视觉，支持图片）</option>
-      <option value="glm-4v-flash">glm-4v-flash（视觉-旧版）</option>
     </select>
     <label>系统提示词 (System Prompt)</label>
     <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;

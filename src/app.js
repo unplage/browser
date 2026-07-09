@@ -160,7 +160,6 @@ function bindGlobalEvents() {
     renderAll();
   });
 
-  ui.$('savedResultsBtn').addEventListener('click', openSavedResults);
   ui.$('uploadBtn').addEventListener('click', openFileUpload);
   ui.$('settingsBtn').addEventListener('click', openSettings);
 
@@ -506,7 +505,7 @@ async function openSettings() {
     if (apiBaseVal) await db.setSetting('apiBase', apiBaseVal);
     if (defaultModelVal) await db.setSetting('defaultModel', defaultModelVal);
     ui.showToast('已保存', 'success');
-  }, { apiBase, defaultModel });
+  }, { apiBase, defaultModel, onOpenSavedResults: openSavedResults });
   setTimeout(() => {
     const sel = ui.$('themeSelect');
     if (sel) sel.value = theme;

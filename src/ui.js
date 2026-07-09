@@ -521,7 +521,10 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
   const saveBtn = mkPrimaryBtn('保存');
   const exportAllBtn = mkBtn('📤 导出全部数据');
   const importAllBtn = mkBtn('📥 导入数据');
+  const savedResultsBtn = mkBtn('💾 已保存的搜索结果');
+  if (extra.onOpenSavedResults) savedResultsBtn.onclick = extra.onOpenSavedResults;
   footer.appendChild(saveBtn);
+  footer.appendChild(savedResultsBtn);
   footer.appendChild(exportAllBtn);
   footer.appendChild(importAllBtn);
   const modal = showModal('⚙️ 设置', form, footer);
@@ -628,8 +631,9 @@ export function showBookmarkPanel(bookmarks, callbacks) {
       const file = e.target.files[0];
       if (!file) return;
       const text = await file.text();
+      const cleaned = text.replace(/<p\b[^>]*>/gi, '').replace(/<\/p>/gi, '');
       const parser = new DOMParser();
-      const doc = parser.parseFromString(text, 'text/html');
+      const doc = parser.parseFromString(cleaned, 'text/html');
       const results = [];
       function parseFolder(dlEl, path) {
         let child = dlEl.firstElementChild;
@@ -655,8 +659,8 @@ export function showBookmarkPanel(bookmarks, callbacks) {
           child = child.nextElementSibling;
         }
       }
-      const rootDL = doc.querySelector('DL');
-      if (rootDL) parseFolder(rootDL, '');
+      const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => !dl.closest('DL'));
+      for (const dl of allDLs) parseFolder(dl, '');
       for (const r of results) await callbacks.onAdd(r);
       const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
       renderBookmarks(container, updated, callbacks, batchMode);
@@ -771,7 +775,7 @@ function renderBookmarks(container, bookmarks, callbacks, batchMode) {
     }
     item.querySelector('.del-btn').onclick = async e => {
       e.stopPropagation();
-      if (!await showConfirm('确认删除此书签？')) return;
+      if (!confirm('确认删除此书签？')) return;
       const updated = await callbacks.onDelete(b.id);
       renderBookmarks(container, updated, callbacks, batchMode);
     };
@@ -827,8 +831,7 @@ function renderBookmarks(container, bookmarks, callbacks, batchMode) {
     };
     delSelectedBtn.onclick = async () => {
       if (selected.size === 0) { showToast('请先选择书签', 'error'); return; }
-      const ok = await showConfirm(`确认删除选中的 ${selected.size} 个书签？`);
-      if (!ok) return;
+      if (!confirm(`确认删除选中的 ${selected.size} 个书签？`)) return;
       for (const id of selected) await callbacks.onDelete(id);
       selected.clear();
       const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));

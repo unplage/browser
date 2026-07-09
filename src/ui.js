@@ -10,10 +10,14 @@ export function renderMarkdown(text) {
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
     .replace(/`(.+?)`/g, '<code>$1</code>')
     .replace(/^-{3,}$/gm, '<hr>');
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, (_, lang, code) => {
+    const langClass = lang ? ` class="language-${escapeHtml(lang)}"` : '';
+    return `<pre><code${langClass}>${code.trim()}</code></pre>`;
+  });
   html = html.split(/\n\n+/).map(b => {
     const t = b.trim();
     if (!t) return '';
-    if (/^<h[1-4]/.test(t) || /^<hr/.test(t)) return t;
+    if (/^<h[1-4]/.test(t) || /^<hr/.test(t) || /^<pre/.test(t)) return t;
     return `<p>${t.replace(/\n/g, '<br>')}</p>`;
   }).join('\n');
   return html;
@@ -101,11 +105,10 @@ export function renderGrid(modules, callbacks, hideAll = false) {
       e.stopPropagation();
       callbacks.onToggle(m.id);
     });
-    card.querySelector('[data-action="delete"]').addEventListener('click', e => {
+    card.querySelector('[data-action="delete"]').addEventListener('click', async e => {
       e.stopPropagation();
-      if (confirm(`确认删除模块「${m.title}」？此操作不可恢复。`)) {
-        callbacks.onDelete(m.id);
-      }
+      const ok = await showConfirm(`确认删除模块「${m.title}」？此操作不可恢复。`);
+      if (ok) callbacks.onDelete(m.id);
     });
     grid.appendChild(card);
   });
@@ -135,6 +138,14 @@ export function updateModuleCount(count, defaultCount = 12) {
 /* ─── Chat ─── */
 let currentChatModule = null;
 
+export function showChatSkeleton() {
+  const container = $('chatMessages');
+  container.innerHTML = `<div class="chat-skeleton">
+    <div class="sk-msg assistant"><div class="sk-avatar skeleton"></div><div class="sk-bubble skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+    <div class="sk-msg user"><div class="sk-avatar skeleton"></div><div class="sk-bubble skeleton"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div></div>
+  </div>`;
+}
+
 export function showChat(module, messages, callbacks = {}) {
   currentChatModule = module;
   showView('chatView');
@@ -143,7 +154,7 @@ export function showChat(module, messages, callbacks = {}) {
   container.innerHTML = '';
 
   if (!messages || messages.length === 0) {
-    container.innerHTML = `<div class="empty-state"><div class="icon">${module.icon}</div><div class="text">开始与「${escapeHtml(module.title)}」对话</div></div>`;
+    container.innerHTML = `<div class="empty-state"><div class="icon">${module.icon}</div><div class="text">开始与「${escapeHtml(module.title)}」对话</div><div class="hint">输入消息后按 Enter 发送，或输入 / 搜索历史对话</div></div>`;
   } else {
     messages.forEach(msg => appendMessage(msg.role, msg.content));
   }
@@ -204,6 +215,8 @@ export function showChat(module, messages, callbacks = {}) {
   input.oninput = () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 120) + 'px'; };
   input.focus();
 
+  $('chatNewBtn').style.display = callbacks.onNewChat ? '' : 'none';
+  $('chatHistoryBtn').style.display = callbacks.onHistory ? '' : 'none';
   $('backToGrid').onclick = () => {
     if (callbacks.onBack) callbacks.onBack();
     else showView('gridView');
@@ -216,6 +229,12 @@ export function showChat(module, messages, callbacks = {}) {
   };
   $('chatStopBtn').onclick = () => {
     if (callbacks.onStop) callbacks.onStop();
+  };
+  $('chatNewBtn').onclick = () => {
+    if (callbacks.onNewChat) callbacks.onNewChat();
+  };
+  $('chatHistoryBtn').onclick = () => {
+    if (callbacks.onHistory) callbacks.onHistory();
   };
   $('chatStopBtn').style.display = 'none';
 }
@@ -242,14 +261,38 @@ export function appendMessage(role, content, streaming = false, imageData = null
     <div class="msg-avatar">${avatar}</div>
     <div class="msg-bubble">${streaming && !content && !imageData ? '<span class="thinking-text">思考中...</span>' : body}</div>
     <div class="msg-time">${time}</div>`;
+  if (role === 'assistant' && content) {
+    const bubble = msg.querySelector('.msg-bubble');
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'msg-copy-btn';
+    copyBtn.textContent = '📋';
+    copyBtn.title = '复制';
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(content).then(() => {
+        copyBtn.textContent = '✅';
+        setTimeout(() => { copyBtn.textContent = '📋'; }, 2000);
+      });
+    };
+    bubble.appendChild(copyBtn);
+  }
   container.appendChild(msg);
   container.scrollTop = container.scrollHeight;
+  if (role === 'assistant' && content) applyHighlighting(msg);
   return msg;
+}
+
+function applyHighlighting(container) {
+  if (window.hljs) {
+    container.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+  }
 }
 
 export function updateStreamingMessage(msgEl, fullContent) {
   const bubble = msgEl.querySelector('.msg-bubble');
-  if (bubble) bubble.innerHTML = renderMarkdown(fullContent);
+  if (bubble) {
+    bubble.innerHTML = renderMarkdown(fullContent);
+    applyHighlighting(bubble);
+  }
 }
 
 export function stopStreaming(msgEl) {
@@ -293,6 +336,7 @@ export function getSavedSearchData() {
 export function showModal(title, bodyEl, footerEl) {
   const overlay = $('modalOverlay');
   const content = $('modalContent');
+  const lastFocusedEl = document.activeElement;
   content.innerHTML = `
     <div class="modal-header">
       <h3>${title}</h3>
@@ -302,9 +346,34 @@ export function showModal(title, bodyEl, footerEl) {
     ${footerEl ? '<div class="modal-footer"></div>' : ''}`;
   content.querySelector('.modal-body').appendChild(bodyEl);
   if (footerEl) content.querySelector('.modal-footer').appendChild(footerEl);
-  const close = () => { overlay.style.display = 'none'; };
+  const close = () => {
+    overlay.style.display = 'none';
+    if (lastFocusedEl) lastFocusedEl.focus();
+  };
   $('modalCloseBtn').onclick = close;
   overlay.onclick = e => { if (e.target === overlay) close(); };
+
+  const focusableEls = content.querySelectorAll('button, input, textarea, select, [tabindex]:not([tabindex="-1"])');
+  const firstFocusable = focusableEls[0];
+  const lastFocusable = focusableEls[focusableEls.length - 1];
+
+  if (firstFocusable) firstFocusable.focus();
+
+  content.addEventListener('keydown', function trap(e) {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === firstFocusable) {
+        e.preventDefault();
+        if (lastFocusable) lastFocusable.focus();
+      }
+    } else {
+      if (document.activeElement === lastFocusable) {
+        e.preventDefault();
+        if (firstFocusable) firstFocusable.focus();
+      }
+    }
+  });
+
   overlay.style.display = 'flex';
   return { close, body: content.querySelector('.modal-body'), footer: content.querySelector('.modal-footer') };
 }
@@ -320,27 +389,92 @@ export function showSettingsPanel(apiKey, onSave) {
     <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 GLM API Key">
     <div class="hint">API Key 仅保存在本地浏览器 IndexedDB 中，每次请求直接发送至 open.bigmodel.cn</div>`;
   const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const saveBtn = mkPrimaryBtn('保存');
+  const exportAllBtn = mkBtn('📤 导出全部数据');
+  const importAllBtn = mkBtn('📥 导入数据');
   footer.appendChild(saveBtn);
+  footer.appendChild(exportAllBtn);
+  footer.appendChild(importAllBtn);
   const modal = showModal('⚙️ 设置', form, footer);
   saveBtn.onclick = async () => {
     const val = $('apiKeyInput').value.trim();
     await onSave(val);
     modal.close();
   };
+  exportAllBtn.onclick = () => {
+    import('../src/db.js').then(async db => {
+      const data = {
+        modules: await db.getModules(),
+        bookmarks: await db.getBookmarks(),
+        searchResults: await db.getSearchResults(),
+        chatHistory: await db.db.chatHistory.toArray(),
+        files: await db.getFiles(),
+        settings: await db.db.settings.toArray(),
+        exportedAt: new Date().toISOString(),
+      };
+      const json = JSON.stringify(data, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `ai-browser-backup-${Date.now()}.json`; a.click();
+      URL.revokeObjectURL(url);
+      showToast('数据已导出', 'success');
+    });
+  };
+  importAllBtn.onclick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if (!data.modules && !data.bookmarks) { showToast('无效的备份文件', 'error'); return; }
+        const ok = await showConfirm('导入将覆盖现有数据，确认继续？');
+        if (!ok) return;
+        import('../src/db.js').then(async db => {
+          if (data.modules?.length) {
+            await db.db.modules.clear();
+            await db.saveModules(data.modules);
+          }
+          if (data.bookmarks?.length) {
+            await db.db.bookmarks.clear();
+            for (const b of data.bookmarks) await db.addBookmark(b);
+          }
+          if (data.settings?.length) {
+            await db.db.settings.clear();
+            for (const s of data.settings) await db.db.settings.put(s);
+          }
+          showToast('数据已导入，请刷新页面', 'success');
+        });
+      } catch (err) { showToast('导入失败: ' + err.message, 'error'); }
+    };
+    input.click();
+  };
 }
 
 /* ─── Bookmarks ─── */
 export function showBookmarkPanel(bookmarks, callbacks) {
   const container = document.createElement('div');
-  renderBookmarks(container, bookmarks, callbacks);
+  renderBookmarks(container, bookmarks, callbacks, false);
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const addBtn = mkBtn('➕ 添加');
   const importBtn = mkBtn('📥 导入 HTML');
   const exportBtn = mkBtn('📤 导出 JSON');
   const saveResultBtn = mkBtn('💾 保存当前搜索结果');
-  [addBtn, importBtn, exportBtn, saveResultBtn].forEach(b => footer.appendChild(b));
+  const batchBtn = mkBtn('☑️ 批量操作');
+  [addBtn, importBtn, exportBtn, saveResultBtn, batchBtn].forEach(b => footer.appendChild(b));
+
+  let batchMode = false;
+  batchBtn.onclick = () => {
+    batchMode = !batchMode;
+    renderBookmarks(container, bookmarks, callbacks, batchMode);
+    batchBtn.textContent = batchMode ? '✅ 完成' : '☑️ 批量操作';
+  };
 
   const modal = showModal('📑 书签管理', container, footer);
 
@@ -391,7 +525,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
   };
 }
 
-function renderBookmarks(container, bookmarks, callbacks) {
+function renderBookmarks(container, bookmarks, callbacks, batchMode) {
   container.innerHTML = '';
   if (bookmarks.length === 0) {
     container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无书签</div></div>';
@@ -399,27 +533,36 @@ function renderBookmarks(container, bookmarks, callbacks) {
   }
   const list = document.createElement('div');
   list.className = 'bookmark-list';
+  const selected = new Set();
   bookmarks.forEach(b => {
     const item = document.createElement('div');
     item.className = 'bookmark-item';
     const favicon = (b.url && b.url.startsWith('http')) ? `https://www.google.com/s2/favicons?domain=${new URL(b.url).hostname}&sz=32` : '';
     item.innerHTML = `
+      ${batchMode ? `<input type="checkbox" class="batch-check" data-id="${b.id}" style="flex-shrink:0;width:16px;height:16px">` : ''}
       <span class="favicon">${favicon ? `<img src="${favicon}" width="16" height="16" onerror="this.style.display='none'" style="border-radius:2px">` : '📌'}</span>
       <div class="info">
         <div class="title">${escapeHtml(b.title)}</div>
         <div class="url">${escapeHtml(b.url || '本地记录')}</div>
       </div>
       <button class="del-btn" data-id="${b.id}">✕</button>`;
+    if (batchMode) {
+      const cb = item.querySelector('.batch-check');
+      cb.onchange = () => {
+        if (cb.checked) selected.add(b.id);
+        else selected.delete(b.id);
+      };
+    }
     item.querySelector('.del-btn').onclick = async e => {
       e.stopPropagation();
-      if (!confirm('确认删除此书签？')) return;
+      if (!await showConfirm('确认删除此书签？')) return;
       const updated = await callbacks.onDelete(b.id);
-      renderBookmarks(container, updated, callbacks);
+      renderBookmarks(container, updated, callbacks, batchMode);
     };
     if (b.url && b.url.startsWith('http')) {
       item.style.cursor = 'pointer';
       item.onclick = e => {
-        if (e.target.closest('.del-btn')) return;
+        if (e.target.closest('.del-btn') || e.target.closest('.batch-check')) return;
         if (callbacks.onOpenUrl) {
           callbacks.onOpenUrl(b.url);
         } else {
@@ -429,6 +572,30 @@ function renderBookmarks(container, bookmarks, callbacks) {
     }
     list.appendChild(item);
   });
+  if (batchMode) {
+    const bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;gap:8px;padding:8px 0;flex-wrap:wrap;';
+    const selectAllBtn = mkBtn('全选');
+    const delSelectedBtn = mkBtn('🗑️ 删除选中');
+    bar.appendChild(selectAllBtn);
+    bar.appendChild(delSelectedBtn);
+    selectAllBtn.onclick = () => {
+      const cbs = list.querySelectorAll('.batch-check');
+      const allChecked = [...cbs].every(cb => cb.checked);
+      cbs.forEach(cb => { cb.checked = !allChecked; if (cb.checked) selected.add(cb.dataset.id); else selected.delete(cb.dataset.id); });
+      selectAllBtn.textContent = allChecked ? '全选' : '取消全选';
+    };
+    delSelectedBtn.onclick = async () => {
+      if (selected.size === 0) { showToast('请先选择书签', 'error'); return; }
+      const ok = await showConfirm(`确认删除选中的 ${selected.size} 个书签？`);
+      if (!ok) return;
+      for (const id of selected) await callbacks.onDelete(id);
+      selected.clear();
+      const updated = await (callbacks.onRefresh ? callbacks.onRefresh() : Promise.resolve(bookmarks));
+      renderBookmarks(container, updated, callbacks, batchMode);
+    };
+    list.insertBefore(bar, list.firstChild);
+  }
   container.appendChild(list);
 }
 
@@ -487,20 +654,25 @@ export function showFileUploader(savedFiles, onUpload, onDelete) {
 
   async function handleFile(file) {
     let text;
-    try { text = await file.text(); } catch { alert('无法读取文件'); return; }
-    showSearchLoading();
-    $('searchViewTitle').textContent = `分析中: ${file.name}`;
+    try { text = await file.text(); } catch { showToast('无法读取文件', 'error'); return; }
+    const loadingModal = showModal(`📄 分析中: ${file.name}`, (() => {
+      const d = document.createElement('div');
+      d.innerHTML = '<div style="text-align:center;padding:20px"><span class="spinner"></span> 正在分析文件...</div>';
+      return d;
+    })());
     try {
       const { analyzeFile } = await import('./api.js');
       const analysis = await analyzeFile(text, file.name);
+      loadingModal.close();
       await onUpload({ fileName: file.name, fileType: file.name.split('.').pop(), content: text.slice(0, 5000), analysis });
-      showSearchResult(file.name, analysis);
-      $('saveSearchBtn').style.display = 'none';
+      const resultDiv = document.createElement('div');
+      resultDiv.innerHTML = renderMarkdown(analysis);
+      if (window.hljs) resultDiv.querySelectorAll('pre code').forEach(b => hljs.highlightElement(b));
+      showModal(`📄 ${escapeHtml(file.name)}`, resultDiv);
       renderFiles();
     } catch (err) {
-      $('searchResultContent').innerHTML = `<div style="color:var(--danger);padding:20px">分析失败: ${escapeHtml(err.message)}</div>`;
-      $('searchBtn').classList.remove('loading');
-      $('searchBtn').textContent = '搜索';
+      loadingModal.close();
+      showToast('分析失败: ' + err.message, 'error');
     }
   }
 }
@@ -577,8 +749,8 @@ export function showCreateModule(onCreate) {
     const icon = $('newModIcon').value.trim() || '🤖';
     const prompt = $('newModPrompt').value.trim();
     const model = $('newModModel').value;
-    if (!title) { alert('请输入模块名称'); $('newModTitle').focus(); return; }
-    if (!prompt) { alert('请输入系统提示词'); $('newModPrompt').focus(); return; }
+    if (!title) { showToast('请输入模块名称', 'error'); $('newModTitle').focus(); return; }
+    if (!prompt) { showToast('请输入系统提示词', 'error'); $('newModPrompt').focus(); return; }
     await onCreate(title, icon, prompt, model);
     modal.close();
   };
@@ -622,6 +794,82 @@ export function showSavedResults(results, onDelete) {
   showModal('💾 已保存的搜索结果', container);
 }
 
+/* ─── Chat History Panel ─── */
+export function showChatHistoryPanel(histories, currentId, icon, callbacks) {
+  const container = document.createElement('div');
+  container.style.cssText = 'display:flex;flex-direction:column;gap:4px;max-height:400px;overflow-y:auto;';
+
+  function render() {
+    container.innerHTML = '';
+    if (histories.length === 0) {
+      container.innerHTML = '<div class="empty-state" style="padding:20px"><div class="text">暂无对话历史</div></div>';
+      return;
+    }
+    histories.forEach(h => {
+      const item = document.createElement('div');
+      item.className = `history-item${h.id === currentId ? ' active' : ''}`;
+      const firstMsg = h.messages?.find(m => m.role === 'user')?.content || '';
+      const title = h.title || firstMsg.slice(0, 50) || '新对话';
+      const msgCount = h.messages?.length || 0;
+      const date = new Date(h.createdAt).toLocaleDateString('zh-CN');
+      item.innerHTML = `
+        <div class="history-item-main">
+          <div class="history-item-title">${escapeHtml(title)}</div>
+          <div class="history-item-meta">${date} · ${msgCount} 条消息</div>
+        </div>
+        ${h.id === currentId ? '<span class="history-current-badge">当前</span>' : ''}
+        <button class="history-rename-btn" data-id="${h.id}">✏️</button>
+        <button class="history-del-btn" data-id="${h.id}">✕</button>`;
+      item.querySelector('.history-rename-btn').onclick = async e => {
+        e.stopPropagation();
+        const newTitle = prompt('重命名对话：', h.title || title);
+        if (newTitle && newTitle.trim()) {
+          const updated = await callbacks.onRename(h.id, newTitle.trim());
+          histories = updated;
+          render();
+        }
+      };
+      item.querySelector('.history-del-btn').onclick = async e => {
+        e.stopPropagation();
+        if (h.id === currentId) { showToast('不能删除当前对话', 'error'); return; }
+        const ok = await showConfirm('确认删除此对话？');
+        if (!ok) return;
+        const updated = await callbacks.onDelete(h.id);
+        histories = updated;
+        render();
+      };
+      item.addEventListener('click', e => {
+        if (e.target.closest('.history-del-btn')) return;
+        if (h.id === currentId) return;
+        callbacks.onSelect(h.id);
+        modal.close();
+      });
+      container.appendChild(item);
+    });
+  }
+  render();
+
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
+  const exportBtn = mkBtn('📤 导出全部');
+  footer.appendChild(exportBtn);
+  exportBtn.onclick = () => {
+    const data = histories.map(h => {
+      const firstMsg = h.messages?.find(m => m.role === 'user')?.content || '';
+      const title = h.title || firstMsg.slice(0, 50) || '新对话';
+      return { title, createdAt: h.createdAt, messages: h.messages };
+    });
+    const json = JSON.stringify(data, null, 2);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `chat-history-${Date.now()}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const modal = showModal(`${icon} 对话历史`, container, footer);
+}
+
 /* ─── In-App Browser ─── */
 export function showBrowserView(url, onBack) {
   showView('browserView');
@@ -640,6 +888,42 @@ export function showBrowserView(url, onBack) {
   $('browserOpenExternal').onclick = () => {
     window.open(url, '_blank');
   };
+}
+
+/* ─── Toast ─── */
+export function showToast(message, type = 'info') {
+  const container = $('toastContainer');
+  if (!container) return;
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  container.appendChild(el);
+  setTimeout(() => {
+    el.classList.add('toast-hiding');
+    setTimeout(() => el.remove(), 300);
+  }, 3500);
+}
+
+export function showConfirm(message) {
+  return new Promise(resolve => {
+    const body = document.createElement('div');
+    body.textContent = message;
+    body.style.cssText = 'font-size:14px;color:var(--text-secondary);padding:8px 0;line-height:1.6';
+    const footer = document.createElement('div');
+    const cancelBtn = mkBtn('取消');
+    const okBtn = mkPrimaryBtn('确认');
+    footer.appendChild(cancelBtn);
+    footer.appendChild(okBtn);
+    const modal = showModal('确认', body, footer);
+    cancelBtn.onclick = () => { modal.close(); resolve(false); };
+    okBtn.onclick = () => { modal.close(); resolve(true); };
+  });
+}
+
+/* ─── Sidebar Footer ─── */
+export function updateSidebarVersion(version) {
+  const footer = $('sidebarFooter');
+  if (footer) footer.textContent = `v${version}`;
 }
 
 /* ─── Utility ─── */

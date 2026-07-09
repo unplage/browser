@@ -65,6 +65,28 @@ export async function getChatHistory(moduleId) {
   return list.length > 0 ? list[0] : null;
 }
 
+export async function getAllChatHistories(moduleId) {
+  return await db.chatHistory.where('moduleId').equals(moduleId).reverse().toArray();
+}
+
+export async function getChatHistoryById(id) {
+  return await db.chatHistory.get(id);
+}
+
+export async function createChatHistory(moduleId) {
+  const id = await db.chatHistory.add({ moduleId, messages: [], createdAt: Date.now() });
+  return id;
+}
+
+export async function saveChatHistoryById(id, messages) {
+  const existing = await db.chatHistory.get(id);
+  if (existing) {
+    existing.messages = messages;
+    existing.createdAt = Date.now();
+    await db.chatHistory.put(existing);
+  }
+}
+
 export async function saveChatHistory(moduleId, messages) {
   const existing = await getChatHistory(moduleId);
   if (existing) {
@@ -73,6 +95,18 @@ export async function saveChatHistory(moduleId, messages) {
     await db.chatHistory.put(existing);
   } else {
     await db.chatHistory.add({ moduleId, messages, createdAt: Date.now() });
+  }
+}
+
+export async function deleteChatHistory(id) {
+  await db.chatHistory.delete(id);
+}
+
+export async function renameChatHistory(id, title) {
+  const rec = await db.chatHistory.get(id);
+  if (rec) {
+    rec.title = title;
+    await db.chatHistory.put(rec);
   }
 }
 

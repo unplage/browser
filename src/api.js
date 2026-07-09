@@ -51,7 +51,8 @@ async function request(messages, opts = {}) {
     do_sample: doSample,
     temperature,
     top_p: topP,
-    max_tokens: opts.maxTokens ?? 8192,
+    max_tokens: opts.maxTokens ?? 131072,
+    thinking: { type: 'enabled' },
   };
 
   if (opts.webSearch) {

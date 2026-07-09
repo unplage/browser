@@ -33,7 +33,7 @@ const state = {
 function renderAll() {
   const active = state.modules.find(m => m.id === state.currentModuleId);
   const displayedModules = state.hideAll ? [] : state.modules;
-  ui.renderSidebar(displayedModules, state.currentModuleId, onModuleClick);
+  ui.renderSidebar(displayedModules, state.currentModuleId, onModuleClick, onModuleToggle);
   ui.renderGrid(state.modules, {
     onOpen: onModuleClick,
     onEdit: onModuleEdit,
@@ -110,7 +110,7 @@ function bindGlobalEvents() {
 async function onModuleClick(id) {
   state.currentModuleId = id;
   await loadAndShowChat(id);
-  ui.renderSidebar(state.modules, id, onModuleClick);
+  ui.renderSidebar(state.modules, id, onModuleClick, onModuleToggle);
   if (window.innerWidth <= 768) {
     ui.$('sidebar').classList.remove('mobile-overlay');
     document.body.classList.remove('sidebar-open');
@@ -199,7 +199,7 @@ async function handleChatBack() {
   state.currentModuleId = null;
   state.currentMessages = [];
   ui.showView('gridView');
-  ui.renderSidebar(state.modules, null, onModuleClick);
+  ui.renderSidebar(state.modules, null, onModuleClick, onModuleToggle);
 }
 
 async function onModuleEdit(id) {

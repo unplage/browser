@@ -26,14 +26,30 @@ export function showView(viewId) {
 }
 
 /* ─── Sidebar ─── */
-export function renderSidebar(modules, activeId, onModuleClick) {
+export function renderSidebar(modules, activeId, onModuleClick, onModuleToggle) {
   const nav = $('moduleNav');
   nav.innerHTML = '';
   modules.forEach(m => {
     const item = document.createElement('div');
-    item.className = `nav-item${m.id === activeId ? ' active' : ''}`;
-    item.innerHTML = `<span class="icon">${m.icon}</span><span class="title">${escapeHtml(m.title)}</span>`;
-    item.addEventListener('click', () => onModuleClick(m.id));
+    const isActive = m.id === activeId;
+    const disabled = !m.enabled;
+    item.className = `nav-item${isActive ? ' active' : ''}${disabled ? ' disabled' : ''}`;
+    if (disabled) {
+      item.innerHTML = `<span class="icon">${m.icon}</span><span class="title">${escapeHtml(m.title)}</span><button class="nav-show-btn" data-id="${m.id}">👁️</button>`;
+      item.querySelector('.nav-show-btn').onclick = e => {
+        e.stopPropagation();
+        if (onModuleToggle) onModuleToggle(m.id);
+      };
+    } else {
+      item.innerHTML = `<span class="icon">${m.icon}</span><span class="title">${escapeHtml(m.title)}</span>`;
+    }
+    item.addEventListener('click', () => {
+      if (disabled && onModuleToggle) {
+        onModuleToggle(m.id);
+      } else if (!disabled) {
+        onModuleClick(m.id);
+      }
+    });
     nav.appendChild(item);
   });
 }
@@ -98,10 +114,10 @@ export function renderGrid(modules, callbacks, hideAll = false) {
 
   if (window.Sortable) {
     Sortable.create(grid, {
-      animation: 200,
-      handle: '.module-card',
+      animation: 150,
+      handle: '.drag-handle',
       ghostClass: 'sortable-ghost',
-      filter: '.grid-view-title, #gridCreateBtn',
+      filter: '.grid-view-title, #gridCreateBtn, .module-card-actions, .module-card-header .icon, .module-card-header .title',
       delay: 200,
       delayOnTouchOnly: true,
       onEnd: e => {

@@ -239,6 +239,17 @@ input, textarea {
 }
 .nav-item .icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
 .nav-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nav-item.disabled { opacity: 0.4; }
+.nav-item.disabled .nav-show-btn {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+.nav-item.disabled .nav-show-btn:hover { background: var(--accent-light); color: var(--accent); opacity: 1; }
+.nav-item.disabled:hover { opacity: 0.7; }
 
 /* ─── Content ─── */
 #content {
@@ -301,6 +312,7 @@ input, textarea {
   min-height: 120px;
   position: relative;
   overflow: hidden;
+  touch-action: manipulation;
 }
 .module-card:hover {
   border-color: var(--accent);
@@ -328,6 +340,7 @@ input, textarea {
   opacity: 0.5;
   transition: var(--transition);
   user-select: none;
+  touch-action: none;
 }
 .module-card:hover .drag-handle { opacity: 1; color: var(--accent); }
 .module-card:active .drag-handle { cursor: grabbing; }

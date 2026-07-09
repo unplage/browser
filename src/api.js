@@ -10,6 +10,16 @@ async function getDefaultModel() {
   return await getSetting('defaultModel') || 'glm-4.7-flash';
 }
 
+async function getDefaultTemperature() {
+  const t = await getSetting('temperature');
+  return t !== null ? parseFloat(t) : null;
+}
+
+async function getDefaultTopP() {
+  const t = await getSetting('topP');
+  return t !== null ? parseFloat(t) : null;
+}
+
 function nowContext() {
   const d = new Date();
   return `当前日期和时间: ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}（${d.toLocaleDateString('zh-CN', {weekday:'long'})}）。`;
@@ -30,13 +40,17 @@ async function request(messages, opts = {}) {
   const baseUrl = await getApiBase();
   const defaultModel = await getDefaultModel();
 
+  const temperature = opts.temperature ?? (await getDefaultTemperature()) ?? 1.0;
+  const topP = opts.top_p ?? (await getDefaultTopP()) ?? 0.95;
+  const doSample = opts.do_sample !== undefined ? opts.do_sample : true;
+
   const body = {
     model: opts.model || defaultModel,
     messages,
     stream: !!opts.stream,
-    do_sample: true,
-    temperature: opts.temperature ?? 0.7,
-    top_p: 0.9,
+    do_sample: doSample,
+    temperature,
+    top_p: topP,
     max_tokens: opts.maxTokens ?? 8192,
   };
 

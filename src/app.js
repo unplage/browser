@@ -496,7 +496,10 @@ async function openSettings() {
   const theme = await db.getSetting('theme') || 'light';
   const apiBase = await db.getSetting('apiBase');
   const defaultModel = await db.getSetting('defaultModel');
-  ui.showSettingsPanel(key, async (val, themeVal, apiBaseVal, defaultModelVal) => {
+  const temperature = await db.getSetting('temperature');
+  const topP = await db.getSetting('topP');
+  const doSample = await db.getSetting('doSample');
+  ui.showSettingsPanel(key, async (val, themeVal, apiBaseVal, defaultModelVal, temperatureVal, topPVal, doSampleVal) => {
     if (val) await db.setSetting('apiKey', val);
     if (themeVal) {
       await db.setSetting('theme', themeVal);
@@ -504,8 +507,11 @@ async function openSettings() {
     }
     if (apiBaseVal) await db.setSetting('apiBase', apiBaseVal);
     if (defaultModelVal) await db.setSetting('defaultModel', defaultModelVal);
+    await db.setSetting('temperature', String(temperatureVal));
+    await db.setSetting('topP', String(topPVal));
+    await db.setSetting('doSample', String(doSampleVal));
     ui.showToast('已保存', 'success');
-  }, { apiBase, defaultModel, onOpenSavedResults: openSavedResults });
+  }, { apiBase, defaultModel, temperature: temperature ? parseFloat(temperature) : 1.0, topP: topP ? parseFloat(topP) : 0.95, doSample: doSample === null ? true : doSample === 'true', onOpenSavedResults: openSavedResults });
   setTimeout(() => {
     const sel = ui.$('themeSelect');
     if (sel) sel.value = theme;

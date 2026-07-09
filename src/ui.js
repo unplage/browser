@@ -510,6 +510,32 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
     </label>
     <input type="text" id="defaultModelInput" value="${escapeHtml(extra.defaultModel || 'glm-4.7-flash')}" placeholder="glm-4.7-flash">
     <div class="hint">修改 API 地址可接入其他兼容 OpenAI 协议的推理服务</div>
+    <label>采样参数</label>
+    <div style="padding:4px 0">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
+        <span>温度 (temperature): <span id="tempVal">${extra.temperature ?? 1.0}</span></span>
+      </div>
+      <input type="range" id="temperatureInput" min="0" max="1" step="0.1" value="${extra.temperature ?? 1.0}" style="width:100%" oninput="document.getElementById('tempVal').textContent=this.value">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
+        <span>确定 (0.0)</span>
+        <span>创造性 (1.0)</span>
+      </div>
+    </div>
+    <div style="padding:4px 0">
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
+        <span>核采样 (top_p): <span id="topPVal">${extra.topP ?? 0.95}</span></span>
+      </div>
+      <input type="range" id="topPInput" min="0.01" max="1" step="0.05" value="${extra.topP ?? 0.95}" style="width:100%" oninput="document.getElementById('topPVal').textContent=this.value">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
+        <span>集中 (0.01)</span>
+        <span>多样 (1.0)</span>
+      </div>
+    </div>
+    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px">
+      <input type="checkbox" id="doSampleInput" ${(extra.doSample !== false) ? 'checked' : ''}>
+      启用采样 (do_sample)
+      <small style="color:var(--text-tertiary);font-weight:400"> — 关闭后 temperature/top_p 不生效</small>
+    </label>
     <label>主题模式</label>
     <select id="themeSelect" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
       <option value="light">☀️ 亮色</option>
@@ -533,7 +559,10 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
     const theme = $('themeSelect').value;
     const apiBase = $('apiBaseInput').value.trim();
     const defaultModel = $('defaultModelInput').value.trim();
-    await onSave(val, theme, apiBase, defaultModel);
+    const temperature = parseFloat($('temperatureInput').value);
+    const topP = parseFloat($('topPInput').value);
+    const doSample = $('doSampleInput').checked;
+    await onSave(val, theme, apiBase, defaultModel, temperature, topP, doSample);
     modal.close();
   };
   exportAllBtn.onclick = () => {

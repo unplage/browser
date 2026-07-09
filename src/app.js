@@ -20,7 +20,7 @@ function debounce(fn, ms) {
   };
 }
 
-const VERSION = 'v9';
+const VERSION = 'v10';
 
 const state = {
   modules: [],

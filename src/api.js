@@ -51,7 +51,7 @@ async function request(messages, opts = {}) {
     do_sample: doSample,
     temperature,
     top_p: topP,
-    max_tokens: opts.maxTokens ?? 131072,
+    max_tokens: (opts.model || defaultModel) === 'glm-4.6v-flash' ? 32768 : (opts.maxTokens ?? 131072),
     thinking: { type: 'enabled' },
   };
 

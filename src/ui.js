@@ -266,7 +266,7 @@ export function showChat(module, messages, callbacks = {}) {
   if (!messages || messages.length === 0) {
     container.innerHTML = `<div class="empty-state"><div class="icon">${module.icon}</div><div class="text">开始与「${escapeHtml(module.title)}」对话</div><div class="hint">输入消息后按 Enter 发送，或输入 / 搜索历史对话</div></div>`;
   } else {
-    messages.forEach(msg => appendMessage(msg.role, msg.content));
+    messages.forEach(msg => appendMessage(msg.role, msg.content, false, null, msg.timestamp));
   }
 
   const sendBtn = $('chatSend');
@@ -358,14 +358,14 @@ export function showStreaming(active) {
   if (btn) btn.style.display = active ? '' : 'none';
 }
 
-export function appendMessage(role, content, streaming = false, imageData = null) {
+export function appendMessage(role, content, streaming = false, imageData = null, timestamp = null) {
   const container = $('chatMessages');
   const empty = container.querySelector('.empty-state');
   if (empty) empty.remove();
 
   const msg = document.createElement('div');
   msg.className = `msg ${role}${streaming ? ' streaming' : ''}`;
-  const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+  const time = timestamp ? new Date(timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
   const avatar = role === 'user' ? '👤' : currentChatModule?.icon || '🤖';
   let body = role === 'assistant' ? renderMarkdown(content) : escapeHtml(content);
   if (imageData && role === 'user') {
@@ -663,9 +663,8 @@ export function showBookmarkPanel(bookmarks, callbacks) {
         const file = e.target.files[0];
         if (!file) return;
         const text = await file.text();
-        const cleaned = text.replace(/<p\b[^>]*>/gi, '').replace(/<\/p>/gi, '');
         const parser = new DOMParser();
-        const doc = parser.parseFromString(cleaned, 'text/html');
+        const doc = parser.parseFromString(text, 'text/html');
         const results = [];
         function parseFolder(dlEl, path) {
           let child = dlEl.firstElementChild;
@@ -691,7 +690,7 @@ export function showBookmarkPanel(bookmarks, callbacks) {
             child = child.nextElementSibling;
           }
         }
-        const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => dl.parentElement === doc.body);
+        const allDLs = Array.from(doc.querySelectorAll('DL')).filter(dl => !dl.parentElement.closest('DL'));
         if (allDLs.length === 0) { showToast('未识别到书签文件，请确认是浏览器导出的 HTML', 'warning'); return; }
         for (const dl of allDLs) parseFolder(dl, '');
         if (results.length === 0) { showToast('未在文件中找到书签', 'warning'); return; }

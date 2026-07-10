@@ -20,7 +20,7 @@ function debounce(fn, ms) {
   };
 }
 
-const VERSION = 'v10';
+const VERSION = 'v11';
 
 const state = {
   modules: [],
@@ -62,9 +62,13 @@ const state = {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('[SW] 注册失败:', e));
   }
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener('beforeunload', (e) => {
     if (state.currentChatId && state.currentMessages.length > 0) {
       db.saveChatHistoryById(state.currentChatId, state.currentMessages);
+    }
+    if (state.currentMessages.length > 0) {
+      e.preventDefault();
+      e.returnValue = '';
     }
   });
 
@@ -240,7 +244,7 @@ async function handleSend(text, useWeb) {
   sendBtn.textContent = '发送中…';
 
   const userMsg = useWeb ? `【需要联网搜索最新信息】${text}` : text;
-  state.currentMessages.push({ role: 'user', content: userMsg });
+  state.currentMessages.push({ role: 'user', content: userMsg, timestamp: Date.now() });
   ui.appendMessage('user', text, false, state.pendingImage);
   ui.clearPendingImage();
 
@@ -262,7 +266,7 @@ async function handleSend(text, useWeb) {
     });
     ui.stopStreaming(msgEl);
     ui.showStreaming(false);
-    state.currentMessages.push({ role: 'assistant', content: result });
+    state.currentMessages.push({ role: 'assistant', content: result, timestamp: Date.now() });
     state.pendingImage = null;
   } catch (e) {
     ui.stopStreaming(msgEl);

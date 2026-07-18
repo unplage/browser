@@ -1232,13 +1232,13 @@ export function showModuleEditor(module, onSave, callbacks = {}) {
     <textarea id="modPrompt">${escapeHtml(module.systemPrompt)}</textarea>
     ${isCustom ? '' : '<button class="reset-btn">↺ 恢复默认提示词</button>'}`;
 
-  $('modProvider').addEventListener('change', function() {
+  form.querySelector('#modProvider').addEventListener('change', function() {
     const pid = this.value;
     const p = providers.find(x => x.id === pid);
     if (p) {
-      const dl = $('modModelList');
+      const dl = form.querySelector('#modModelList');
       dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
-      const mi = $('modModel');
+      const mi = form.querySelector('#modModel');
       if (p.defaultModel && !mi.value) mi.value = p.defaultModel;
     }
   });
@@ -1305,14 +1305,14 @@ export function showCreateModule(onCreate, providers = []) {
     <label>系统提示词 (System Prompt)</label>
     <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;
 
-  $('newModProvider')?.addEventListener('change', function() {
+  form.querySelector('#newModProvider').addEventListener('change', function() {
     const pid = this.value;
     const p = providers.find(x => x.id === pid);
     if (p) {
-      const dl = $('newModModelList');
-      if (dl) dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
-      const mi = $('newModModel');
-      if (mi && p.defaultModel && !mi.value) mi.value = p.defaultModel;
+      const dl = form.querySelector('#newModModelList');
+      dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
+      const mi = form.querySelector('#newModModel');
+      if (p.defaultModel && !mi.value) mi.value = p.defaultModel;
     }
   });
 

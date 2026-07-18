@@ -72,6 +72,13 @@ export function applyTheme(mode) {
   }
 }
 
+export function applyFontSize(size) {
+  const px = parseInt(size, 10);
+  if (px && px >= 10 && px <= 32) {
+    document.documentElement.style.setProperty('--font-size', px + 'px');
+  }
+}
+
 /* ─── Quick Search Bar ─── */
 const SEARCH_ENGINES = [
   { label: 'Bing', url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}` },
@@ -493,55 +500,288 @@ export function showModal(title, bodyEl, footerEl) {
 }
 
 /* ─── Settings ─── */
-export function showSettingsPanel(apiKey, onSave, extra = {}) {
+function renderParamControl(paramKey, config, currentVal, onChange) {
+  const val = currentVal !== undefined ? currentVal : config.default;
+  const container = document.createElement('div');
+  container.style.cssText = 'padding:4px 0';
+  const label = document.createElement('div');
+  label.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)';
+
+  if (config.type === 'range') {
+    const span = document.createElement('span');
+    span.id = `param_${paramKey}_val`;
+    const displayName = paramKey === 'top_p' ? 'top_p' : paramKey;
+    span.textContent = `${displayName}: ${val}`;
+    label.appendChild(span);
+    container.appendChild(label);
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.min = config.min ?? 0;
+    input.max = config.max ?? 1;
+    input.step = config.step ?? 0.05;
+    input.value = val;
+    input.style.cssText = 'width:100%';
+    input.addEventListener('input', function() {
+      span.textContent = `${displayName}: ${this.value}`;
+      onChange(parseFloat(this.value));
+    });
+    container.appendChild(input);
+  } else if (config.type === 'number') {
+    const span = document.createElement('span');
+    span.textContent = `${paramKey}: `;
+    label.appendChild(span);
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.value = val;
+    input.style.cssText = 'width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:12px;color:var(--text)';
+    input.addEventListener('input', function() { onChange(parseInt(this.value, 10) || config.default); });
+    container.appendChild(label);
+    container.appendChild(input);
+  } else if (config.type === 'boolean') {
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !!val;
+    cb.addEventListener('change', function() { onChange(this.checked); });
+    label.appendChild(cb);
+    const text = document.createElement('span');
+    text.textContent = paramKey;
+    label.appendChild(text);
+    container.appendChild(label);
+  } else if (config.type === 'select') {
+    const span = document.createElement('span');
+    span.textContent = `${paramKey}: `;
+    label.appendChild(span);
+    const sel = document.createElement('select');
+    sel.style.cssText = 'padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:12px;color:var(--text)';
+    (config.options || []).forEach(opt => {
+      const o = document.createElement('option');
+      o.value = opt;
+      o.textContent = opt;
+      if (opt === val) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener('change', function() { onChange(this.value); });
+    container.appendChild(label);
+    container.appendChild(sel);
+  }
+  return container;
+}
+
+function renderProviderCard(provider, isBuiltin, onUpdate, onDelete) {
+  const card = document.createElement('div');
+  card.className = 'settings-provider-card';
+  card.style.cssText = 'border:1px solid var(--border);border-radius:var(--radius-xs);padding:12px;margin-bottom:8px;background:var(--surface);';
+
+  const header = document.createElement('div');
+  header.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none';
+  const toggle = document.createElement('span');
+  toggle.textContent = '▶';
+  toggle.style.cssText = 'font-size:10px;transition:transform .2s';
+  const nameSpan = document.createElement('strong');
+  nameSpan.textContent = provider.name || provider.id;
+  header.appendChild(toggle);
+  header.appendChild(nameSpan);
+
+  const body = document.createElement('div');
+  body.style.cssText = 'margin-top:8px;display:none';
+
+  let collapsed = true;
+  header.onclick = () => {
+    collapsed = !collapsed;
+    body.style.display = collapsed ? 'none' : 'block';
+    toggle.textContent = collapsed ? '▶' : '▼';
+  };
+
+  const fields = document.createElement('div');
+  fields.style.cssText = 'display:flex;flex-direction:column;gap:6px';
+
+  fields.innerHTML = `
+    <label style="font-size:12px">名称</label>
+    <input type="text" class="provider-name" value="${escapeHtml(provider.name)}" placeholder="Provider 名称" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
+    <label style="font-size:12px">API Key</label>
+    <input type="password" class="provider-apikey" value="${escapeHtml(provider.apiKey || '')}" placeholder="输入 API Key" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
+    <label style="font-size:12px">API 地址</label>
+    <input type="text" class="provider-base" value="${escapeHtml(provider.apiBase)}" placeholder="https://..." style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
+    <label style="font-size:12px">默认模型</label>
+    <div style="display:flex;gap:4px;align-items:center">
+      <input type="text" class="provider-defaultmodel" value="${escapeHtml(provider.defaultModel)}" placeholder="模型名称" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)" list="modelSuggest_${provider.id}">
+      <datalist id="modelSuggest_${provider.id}">${(provider.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('')}</datalist>
+    </div>
+    <label style="font-size:12px">模型列表（逗号分隔）</label>
+    <input type="text" class="provider-models" value="${escapeHtml((provider.models || []).join(', '))}" placeholder="model1, model2" style="padding:6px 10px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
+    <div style="margin-top:4px;padding-top:8px;border-top:1px solid var(--border)"><label style="font-size:12px;font-weight:600">参数配置</label></div>`;
+
+  const paramsContainer = document.createElement('div');
+
+  const paramValues = {};
+  for (const [key, config] of Object.entries(provider.params)) {
+    if (!config.supported) continue;
+    const currentVal = config.stored !== undefined ? config.stored : config.default;
+    paramValues[key] = currentVal;
+    const control = renderParamControl(key, config, currentVal, (newVal) => {
+      paramValues[key] = newVal;
+    });
+    paramsContainer.appendChild(control);
+  }
+  fields.appendChild(paramsContainer);
+
+  if (!isBuiltin) {
+    const delBtn = document.createElement('button');
+    delBtn.textContent = '🗑️ 删除此 Provider';
+    delBtn.style.cssText = 'padding:6px 14px;border-radius:16px;font-size:11px;border:1px solid var(--danger);color:var(--danger);background:transparent;cursor:pointer;margin-top:6px';
+    delBtn.onclick = () => { if (onDelete) onDelete(); };
+    fields.appendChild(delBtn);
+  }
+
+  body.appendChild(fields);
+  card.appendChild(header);
+  card.appendChild(body);
+
+  card._collect = () => {
+    const nameInput = card.querySelector('.provider-name');
+    const keyInput = card.querySelector('.provider-apikey');
+    const baseInput = card.querySelector('.provider-base');
+    const modelInput = card.querySelector('.provider-defaultmodel');
+    const modelsInput = card.querySelector('.provider-models');
+    const updated = {
+      ...provider,
+      name: nameInput.value.trim() || provider.id,
+      apiKey: keyInput.value.trim(),
+      apiBase: baseInput.value.trim(),
+      defaultModel: modelInput.value.trim(),
+      models: modelsInput.value.split(',').map(s => s.trim()).filter(Boolean),
+      params: { ...provider.params },
+    };
+    for (const key of Object.keys(updated.params)) {
+      if (paramValues[key] !== undefined) {
+        updated.params[key] = { ...updated.params[key], stored: paramValues[key] };
+      }
+    }
+    return updated;
+  };
+
+  return card;
+}
+
+export function showSettingsPanel(providers, theme, onSave, extra = {}) {
+  const fontSize = extra.fontSize || 14;
   const form = document.createElement('div');
   form.className = 'settings-form';
-  form.innerHTML = `
-    <label>API Key
-      <small style="color:var(--text-tertiary);font-weight:400"> — 从 <a href="https://open.bigmodel.cn" target="_blank" style="color:var(--accent)">bigmodel.cn</a> 获取</small>
-    </label>
-    <input type="password" id="apiKeyInput" value="${escapeHtml(apiKey || '')}" placeholder="输入你的 API Key">
-    <label>API 地址
-      <small style="color:var(--text-tertiary);font-weight:400"> — 默认智谱 GLM</small>
-    </label>
-    <input type="text" id="apiBaseInput" value="${escapeHtml(extra.apiBase || 'https://open.bigmodel.cn/api/paas/v4')}" placeholder="https://open.bigmodel.cn/api/paas/v4">
-    <label>默认模型
-      <small style="color:var(--text-tertiary);font-weight:400"> — 用于未指定模型的模块</small>
-    </label>
-    <input type="text" id="defaultModelInput" value="${escapeHtml(extra.defaultModel || 'glm-4.7-flash')}" placeholder="glm-4.7-flash">
-    <div class="hint">修改 API 地址可接入其他兼容 OpenAI 协议的推理服务</div>
-    <label>采样参数</label>
-    <div style="padding:4px 0">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
-        <span>温度 (temperature): <span id="tempVal">${extra.temperature ?? 1.0}</span></span>
-      </div>
-      <input type="range" id="temperatureInput" min="0" max="1" step="0.1" value="${extra.temperature ?? 1.0}" style="width:100%">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
-        <span>确定 (0.0)</span>
-        <span>创造性 (1.0)</span>
-      </div>
-    </div>
-    <div style="padding:4px 0">
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)">
-        <span>核采样 (top_p): <span id="topPVal">${extra.topP ?? 0.95}</span></span>
-      </div>
-      <input type="range" id="topPInput" min="0.01" max="1" step="0.05" value="${extra.topP ?? 0.95}" style="width:100%">
-      <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-tertiary);margin-top:-2px">
-        <span>集中 (0.01)</span>
-        <span>多样 (1.0)</span>
-      </div>
-    </div>
-    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-top:4px">
-      <input type="checkbox" id="doSampleInput" ${(extra.doSample !== false) ? 'checked' : ''}>
-      启用采样 (do_sample)
-      <small style="color:var(--text-tertiary);font-weight:400"> — 关闭后 temperature/top_p 不生效</small>
-    </label>
-    <label>主题模式</label>
-    <select id="themeSelect" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">
-      <option value="light">☀️ 亮色</option>
-      <option value="dark">🌙 暗色</option>
-      <option value="system">💻 跟随系统</option>
-    </select>`;
+
+  const providersSection = document.createElement('div');
+  providersSection.innerHTML = '<h4 style="margin:0 0 8px;font-size:14px">🤖 API 服务商</h4>';
+  const listContainer = document.createElement('div');
+  listContainer.id = 'providerList';
+  providersSection.appendChild(listContainer);
+
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '➕ 添加 Provider';
+  addBtn.style.cssText = 'padding:6px 16px;border-radius:20px;font-size:12px;border:1px solid var(--border);background:var(--surface);cursor:pointer;margin-bottom:8px';
+  providersSection.appendChild(addBtn);
+
+  function renderProviders() {
+    listContainer.innerHTML = '';
+    providers.forEach((p, i) => {
+      const isBuiltin = extra.isBuiltin ? extra.isBuiltin(p.id) : false;
+      const card = renderProviderCard(p, isBuiltin,
+        null,
+        () => {
+          if (!isBuiltin) {
+            providers.splice(i, 1);
+            renderProviders();
+          }
+        }
+      );
+      listContainer.appendChild(card);
+    });
+  }
+  renderProviders();
+
+  addBtn.onclick = () => {
+    const builtins = extra.getBuiltins ? extra.getBuiltins() : [];
+    if (builtins.length > 0) {
+      const overlay = document.createElement('div');
+      overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.3);z-index:1000;display:flex;align-items:center;justify-content:center';
+      const dialog = document.createElement('div');
+      dialog.style.cssText = 'background:var(--bg);border-radius:var(--radius-sm);padding:16px;min-width:280px;box-shadow:0 4px 20px rgba(0,0,0,0.2)';
+      dialog.innerHTML = '<h4 style="margin:0 0 10px;font-size:14px">选择 Provider 模板</h4>';
+      builtins.forEach(b => {
+        const btn = document.createElement('button');
+        btn.textContent = `${b.name} (${b.id})`;
+        btn.style.cssText = 'display:block;width:100%;padding:8px;margin:4px 0;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface);cursor:pointer;font-size:13px;text-align:left';
+        btn.onclick = () => {
+          const fresh = JSON.parse(JSON.stringify(b));
+          fresh.apiKey = '';
+          providers.push(fresh);
+          renderProviders();
+          overlay.remove();
+        };
+        dialog.appendChild(btn);
+      });
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = '取消';
+      cancelBtn.style.cssText = 'display:block;width:100%;padding:8px;margin-top:8px;border:none;background:transparent;cursor:pointer;font-size:13px;color:var(--text-tertiary)';
+      cancelBtn.onclick = () => overlay.remove();
+      dialog.appendChild(cancelBtn);
+      overlay.appendChild(dialog);
+      document.body.appendChild(overlay);
+    } else {
+      providers.push({
+        id: 'custom_' + Date.now(),
+        name: '自定义 Provider',
+        apiBase: 'https://',
+        apiKey: '',
+        defaultModel: '',
+        models: [],
+        params: {
+          temperature: { supported: true, default: 1.0, type: 'range', min: 0, max: 2, step: 0.1 },
+          top_p: { supported: true, default: 1, type: 'range', min: 0.01, max: 1, step: 0.05 },
+          max_tokens: { supported: true, default: 4096, type: 'number' },
+        },
+        order: providers.length,
+      });
+      renderProviders();
+    }
+  };
+
+  const themeSection = document.createElement('div');
+  themeSection.style.cssText = 'margin-top:12px;padding-top:12px;border-top:1px solid var(--border)';
+  themeSection.innerHTML = '<h4 style="margin:0 0 8px;font-size:14px">🎨 主题</h4>';
+  const themeSelect = document.createElement('select');
+  themeSelect.id = 'themeSelect';
+  themeSelect.style.cssText = 'padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text);width:100%';
+  themeSelect.innerHTML = '<option value="light">☀️ 亮色</option><option value="dark">🌙 暗色</option><option value="system">💻 跟随系统</option>';
+  themeSelect.value = theme;
+  themeSection.appendChild(themeSelect);
+
+  const fontSizeLabel = document.createElement('div');
+  fontSizeLabel.style.cssText = 'display:flex;align-items:center;gap:8px;margin-top:10px';
+  const fontSizeText = document.createElement('span');
+  fontSizeText.id = 'fontSizeText';
+  fontSizeText.textContent = `🔤 字体大小: ${extra.fontSize || 14}px`;
+  fontSizeLabel.appendChild(fontSizeText);
+  themeSection.appendChild(fontSizeLabel);
+  const fontSizeSlider = document.createElement('input');
+  fontSizeSlider.type = 'range';
+  fontSizeSlider.min = '10';
+  fontSizeSlider.max = '24';
+  fontSizeSlider.step = '1';
+  fontSizeSlider.id = 'fontSizeSlider';
+  fontSizeSlider.style.cssText = 'width:100%';
+  themeSection.appendChild(fontSizeSlider);
+
+  const savedFontSize = extra.fontSize || 14;
+  fontSizeSlider.value = savedFontSize;
+  fontSizeText.textContent = `🔤 字体大小: ${savedFontSize}px`;
+  applyFontSize(savedFontSize);
+  fontSizeSlider.addEventListener('input', function() {
+    fontSizeText.textContent = `🔤 字体大小: ${this.value}px`;
+    applyFontSize(this.value);
+  });
+
+  form.appendChild(providersSection);
+  form.appendChild(themeSection);
+
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const saveBtn = mkPrimaryBtn('保存');
@@ -554,19 +794,18 @@ export function showSettingsPanel(apiKey, onSave, extra = {}) {
   footer.appendChild(exportAllBtn);
   footer.appendChild(importAllBtn);
   const modal = showModal('⚙️ 设置', form, footer);
-  $('temperatureInput').addEventListener('input', function() { $('tempVal').textContent = this.value; });
-  $('topPInput').addEventListener('input', function() { $('topPVal').textContent = this.value; });
+
   saveBtn.onclick = async () => {
-    const val = $('apiKeyInput').value.trim();
-    const theme = $('themeSelect').value;
-    const apiBase = $('apiBaseInput').value.trim();
-    const defaultModel = $('defaultModelInput').value.trim();
-    const temperature = parseFloat($('temperatureInput').value);
-    const topP = parseFloat($('topPInput').value);
-    const doSample = $('doSampleInput').checked;
-    await onSave(val, theme, apiBase, defaultModel, temperature, topP, doSample);
+    const collected = [];
+    listContainer.querySelectorAll('.settings-provider-card').forEach(card => {
+      if (card._collect) collected.push(card._collect());
+    });
+    const themeVal = themeSelect.value;
+    const fontSizeVal = parseInt($('fontSizeSlider')?.value, 10) || 14;
+    await onSave(collected, themeVal, fontSizeVal);
     modal.close();
   };
+
   exportAllBtn.onclick = () => {
     import('../src/db.js').then(async db => {
       const data = {
@@ -964,20 +1203,46 @@ export function showModuleEditor(module, onSave, callbacks = {}) {
   const form = document.createElement('div');
   form.className = 'module-editor';
   const isCustom = !isDefaultModule(module.id);
-  const row = isCustom ? `<label>模型</label>
-    <select id="modModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
-      <option value="glm-4.7-flash" ${(!module.model || module.model === 'glm-4.7-flash') ? 'selected' : ''}>glm-4.7-flash（默认）</option>
-      <option value="glm-4.6v-flash" ${module.model === 'glm-4.6v-flash' ? 'selected' : ''}>glm-4.6v-flash（视觉）</option>
-    </select>` : '';
+  const providers = callbacks.providers || [];
+  const currentProviderId = module.providerId || (providers[0]?.id) || 'zhipu';
+  const currentProvider = providers.find(p => p.id === currentProviderId) || providers[0] || { id: '', models: [] };
+  const allModels = currentProvider.models || [];
+  const currentModel = module.model || currentProvider.defaultModel || '';
+
+  const providerOpts = providers.map(p =>
+    `<option value="${escapeHtml(p.id)}" ${p.id === currentProviderId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+  ).join('');
+  const modelOpts = allModels.map(m =>
+    `<option value="${escapeHtml(m)}" ${m === currentModel ? 'selected' : ''}>${escapeHtml(m)}</option>`
+  ).join('');
+
   form.innerHTML = `
     <label>模块名称</label>
     <input type="text" id="modTitle" value="${escapeHtml(module.title)}">
     <label>图标 (Emoji)</label>
     <input type="text" id="modIcon" value="${module.icon}" style="width:70px">
-    ${row}
+    <label>API 服务商</label>
+    <select id="modProvider" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">${providerOpts}</select>
+    <label>模型</label>
+    <div style="display:flex;gap:4px;align-items:center">
+      <input type="text" id="modModel" value="${escapeHtml(currentModel)}" placeholder="模型名称" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)" list="modModelList">
+      <datalist id="modModelList">${allModels.map(m => `<option value="${escapeHtml(m)}">`).join('')}</datalist>
+    </div>
     <label>系统提示词 (System Prompt)</label>
     <textarea id="modPrompt">${escapeHtml(module.systemPrompt)}</textarea>
     ${isCustom ? '' : '<button class="reset-btn">↺ 恢复默认提示词</button>'}`;
+
+  $('modProvider').addEventListener('change', function() {
+    const pid = this.value;
+    const p = providers.find(x => x.id === pid);
+    if (p) {
+      const dl = $('modModelList');
+      dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
+      const mi = $('modModel');
+      if (p.defaultModel && !mi.value) mi.value = p.defaultModel;
+    }
+  });
+
   const footer = document.createElement('div');
   footer.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;';
   const saveBtn = mkPrimaryBtn('保存');
@@ -989,7 +1254,7 @@ export function showModuleEditor(module, onSave, callbacks = {}) {
   savePresetBtn.onclick = async () => {
     const title = $('modTitle').value.trim() || module.title;
     const prompt = $('modPrompt').value.trim() || module.systemPrompt;
-    const model = isCustom ? ($('modModel')?.value || module.model || 'glm-4.7-flash') : 'glm-4.7-flash';
+    const model = $('modModel').value.trim() || currentModel;
     await callbacks.onSavePreset({ title, prompt, model });
     showToast('预设已保存', 'success');
   };
@@ -1005,19 +1270,24 @@ export function showModuleEditor(module, onSave, callbacks = {}) {
       title: $('modTitle').value.trim(),
       icon: $('modIcon').value.trim(),
       systemPrompt: $('modPrompt').value.trim(),
+      providerId: $('modProvider').value,
+      model: $('modModel').value.trim() || undefined,
     };
-    if (isCustom) {
-      const model = $('modModel').value;
-      if (model !== 'glm-4.7-flash') changes.model = model;
-      else delete changes.model;
-    }
     await onSave(module.id, changes);
     modal.close();
   };
 }
 
 /* ─── Create Module ─── */
-export function showCreateModule(onCreate) {
+export function showCreateModule(onCreate, providers = []) {
+  const firstProvider = providers[0] || { id: 'zhipu', name: '智谱 GLM', models: ['glm-4.7-flash', 'glm-4.6v-flash'] };
+  const pOpts = providers.map(p =>
+    `<option value="${escapeHtml(p.id)}" ${p.id === firstProvider.id ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+  ).join('');
+  const modelOpts = (firstProvider.models || []).map(m =>
+    `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`
+  ).join('');
+
   const form = document.createElement('div');
   form.className = 'module-editor';
   form.innerHTML = `
@@ -1025,13 +1295,27 @@ export function showCreateModule(onCreate) {
     <input type="text" id="newModTitle" placeholder="例如：AI 绘画助手" autofocus>
     <label>图标 (Emoji)</label>
     <input type="text" id="newModIcon" value="🤖" style="width:70px">
+    <label>API 服务商</label>
+    <select id="newModProvider" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)">${pOpts}</select>
     <label>模型</label>
-    <select id="newModModel" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px">
-      <option value="glm-4.7-flash">glm-4.7-flash（默认，文本）</option>
-      <option value="glm-4.6v-flash">glm-4.6v-flash（视觉，支持图片）</option>
-    </select>
+    <div style="display:flex;gap:4px;align-items:center">
+      <input type="text" id="newModModel" value="${escapeHtml(firstProvider.defaultModel || '')}" placeholder="模型名称" style="flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:13px;color:var(--text)" list="newModModelList">
+      <datalist id="newModModelList">${modelOpts}</datalist>
+    </div>
     <label>系统提示词 (System Prompt)</label>
     <textarea id="newModPrompt" placeholder="输入模块的系统提示词，定义 AI 的行为和专业知识..." style="min-height:150px"></textarea>`;
+
+  $('newModProvider')?.addEventListener('change', function() {
+    const pid = this.value;
+    const p = providers.find(x => x.id === pid);
+    if (p) {
+      const dl = $('newModModelList');
+      if (dl) dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
+      const mi = $('newModModel');
+      if (mi && p.defaultModel && !mi.value) mi.value = p.defaultModel;
+    }
+  });
+
   const footer = document.createElement('div');
   const createBtn = mkPrimaryBtn('✨ 创建模块');
   footer.appendChild(createBtn);
@@ -1041,10 +1325,11 @@ export function showCreateModule(onCreate) {
     const title = $('newModTitle').value.trim();
     const icon = $('newModIcon').value.trim() || '🤖';
     const prompt = $('newModPrompt').value.trim();
-    const model = $('newModModel').value;
+    const model = $('newModModel').value.trim();
+    const providerId = $('newModProvider')?.value || firstProvider.id;
     if (!title) { showToast('请输入模块名称', 'error'); $('newModTitle').focus(); return; }
     if (!prompt) { showToast('请输入系统提示词', 'error'); $('newModPrompt').focus(); return; }
-    await onCreate(title, icon, prompt, model);
+    await onCreate(title, icon, prompt, model, providerId);
     modal.close();
   };
 }

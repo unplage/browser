@@ -56,7 +56,13 @@ const state = {
     });
   }
 
+  const savedFontSize = await db.getSetting('fontSize') || 14;
+  ui.applyFontSize(savedFontSize);
+
   renderAll();
+
+  const providers = await api.getProviders();
+  updateCSP(providers);
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('[SW] 注册失败:', e));
@@ -259,6 +265,7 @@ async function handleSend(text, useWeb) {
       ui.updateStreamingMessage(msgEl, fullContent);
     }, {
       model: mod.model,
+      providerId: mod.providerId,
       webSearch: useWeb,
       searchQuery: useWeb ? text : undefined,
       imageData: state.pendingImage,
@@ -368,6 +375,7 @@ async function showChatHistory(moduleId) {
 async function onModuleEdit(id) {
   const mod = state.modules.find(m => m.id === id);
   if (!mod) return;
+  const providers = await api.getProviders();
   ui.showModuleEditor(mod, async (mid, changes) => {
     const updated = await mods.updateModule(mid, changes);
     if (updated) {
@@ -375,6 +383,7 @@ async function onModuleEdit(id) {
       renderAll();
     }
   }, {
+    providers,
     onSavePreset: async (preset) => {
       await db.savePreset(preset);
     },
@@ -393,8 +402,8 @@ async function onModuleReorder(ids) {
   state.modules = await mods.getModuleList();
 }
 
-async function onModuleCreate(title, icon, prompt, model) {
-  const mod = await mods.createModule(title, icon, prompt, model);
+async function onModuleCreate(title, icon, prompt, model, providerId) {
+  const mod = await mods.createModule(title, icon, prompt, model, providerId);
   mods.invalidateCache();
   state.modules = await mods.getModuleList();
   renderAll();
@@ -402,11 +411,12 @@ async function onModuleCreate(title, icon, prompt, model) {
 
 async function openPresets() {
   const presets = await db.getPresets();
+  const providers = await api.getProviders();
   ui.showPresetPanel(presets, {
     onUse: async (preset) => {
-      ui.showCreateModule(async (title, icon, prompt, model) => {
-        await onModuleCreate(title || preset.title, icon || '📋', prompt || preset.prompt, model || preset.model);
-      });
+      ui.showCreateModule(async (title, icon, prompt, model, providerId) => {
+        await onModuleCreate(title || preset.title, icon || '📋', prompt || preset.prompt, model || preset.model, providerId);
+      }, providers);
     },
     onDelete: async (id) => {
       await db.deletePreset(id);
@@ -414,10 +424,11 @@ async function openPresets() {
   });
 }
 
-function showCreateModuleDialog() {
-  ui.showCreateModule(async (title, icon, prompt, model) => {
-    await onModuleCreate(title, icon, prompt, model);
-  });
+async function showCreateModuleDialog() {
+  const providers = await api.getProviders();
+  ui.showCreateModule(async (title, icon, prompt, model, providerId) => {
+    await onModuleCreate(title, icon, prompt, model, providerId);
+  }, providers);
 }
 
 async function onModuleDelete(id) {
@@ -494,30 +505,42 @@ async function openFileUpload() {
   });
 }
 
+function updateCSP(providers) {
+  const allowedHosts = new Set(['open.bigmodel.cn']);
+  providers.forEach(p => {
+    try {
+      const host = new URL(p.apiBase).hostname;
+      if (host) allowedHosts.add(host);
+    } catch {}
+  });
+  const connectSrc = [...allowedHosts].join(' https://');
+  const meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+  if (meta) {
+    meta.content = meta.content.replace(/connect-src[^;]+/, `connect-src 'self' https://${connectSrc}`);
+  }
+}
+
 /* ─── Settings ─── */
 async function openSettings() {
-  const key = await db.getSetting('apiKey');
+  const providers = await api.getProviders();
   const theme = await db.getSetting('theme') || 'light';
-  const apiBase = await db.getSetting('apiBase');
-  const defaultModel = await db.getSetting('defaultModel');
-  const temperature = await db.getSetting('temperature');
-  const topP = await db.getSetting('topP');
-  const doSample = await db.getSetting('doSample');
-  ui.showSettingsPanel(key, async (val, themeVal, apiBaseVal, defaultModelVal, temperatureVal, topPVal, doSampleVal) => {
-    if (val) await db.setSetting('apiKey', val);
+  const fontSize = await db.getSetting('fontSize') || 14;
+  ui.showSettingsPanel(providers, theme, async (updatedProviders, themeVal, fontSizeVal) => {
+    await api.saveProviders(updatedProviders);
     if (themeVal) {
       await db.setSetting('theme', themeVal);
       ui.applyTheme(themeVal);
     }
-    if (apiBaseVal) await db.setSetting('apiBase', apiBaseVal);
-    if (defaultModelVal) await db.setSetting('defaultModel', defaultModelVal);
-    await db.setSetting('temperature', String(temperatureVal));
-    await db.setSetting('topP', String(topPVal));
-    await db.setSetting('doSample', String(doSampleVal));
+    if (fontSizeVal) {
+      await db.setSetting('fontSize', fontSizeVal.toString());
+      ui.applyFontSize(fontSizeVal);
+    }
+    updateCSP(updatedProviders);
     ui.showToast('已保存', 'success');
-  }, { apiBase, defaultModel, temperature: temperature ? parseFloat(temperature) : 1.0, topP: topP ? parseFloat(topP) : 0.95, doSample: doSample === null ? true : doSample === 'true', onOpenSavedResults: openSavedResults });
-  setTimeout(() => {
-    const sel = ui.$('themeSelect');
-    if (sel) sel.value = theme;
-  }, 50);
+  }, {
+    onOpenSavedResults: openSavedResults,
+    isBuiltin: api.isBuiltinProvider,
+    getBuiltins: api.getBuiltinProviders,
+    fontSize,
+  });
 }

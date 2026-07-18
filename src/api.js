@@ -1,23 +1,100 @@
-import { getSetting } from './db.js';
+import { getSetting, setSetting } from './db.js';
 
-const DEFAULT_BASE_URL = 'https://open.bigmodel.cn/api/paas/v4';
+const DEFAULT_PROVIDERS = [
+  {
+    id: 'zhipu', name: '智谱 GLM',
+    apiBase: 'https://open.bigmodel.cn/api/paas/v4', apiKey: '',
+    defaultModel: 'glm-4.7-flash',
+    models: ['glm-4.7-flash', 'glm-4.6v-flash'],
+    params: {
+      temperature: { supported: true, default: 1.0, type: 'range', min: 0, max: 2, step: 0.1 },
+      top_p: { supported: true, default: 0.95, type: 'range', min: 0.01, max: 1, step: 0.05 },
+      max_tokens: { supported: true, default: 131072, type: 'number' },
+      thinking: { supported: true, default: true, type: 'boolean' },
+      do_sample: { supported: true, default: true, type: 'boolean' },
+    }, order: 0,
+  },
+  {
+    id: 'deepseek', name: 'DeepSeek',
+    apiBase: 'https://api.deepseek.com', apiKey: '',
+    defaultModel: 'deepseek-v4-flash',
+    models: ['deepseek-v4-flash', 'deepseek-v4-pro'],
+    params: {
+      temperature: { supported: true, default: 1.0, type: 'range', min: 0, max: 2, step: 0.1 },
+      top_p: { supported: true, default: 1, type: 'range', min: 0.01, max: 1, step: 0.05 },
+      max_tokens: { supported: true, default: 8192, type: 'number' },
+      thinking: { supported: true, default: true, type: 'boolean' },
+      reasoning_effort: { supported: true, default: 'high', type: 'select', options: ['high', 'max'] },
+    }, order: 1,
+  },
+  {
+    id: 'openai', name: 'OpenAI',
+    apiBase: 'https://api.openai.com/v1', apiKey: '',
+    defaultModel: 'gpt-4o',
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4.1-nano', 'o3', 'o4-mini'],
+    params: {
+      temperature: { supported: true, default: 1.0, type: 'range', min: 0, max: 2, step: 0.1 },
+      top_p: { supported: true, default: 1, type: 'range', min: 0.01, max: 1, step: 0.05 },
+      max_tokens: { supported: true, default: 4096, type: 'number' },
+    }, order: 2,
+  },
+];
 
-async function getApiBase() {
-  return await getSetting('apiBase') || DEFAULT_BASE_URL;
+const BUILTIN_IDS = ['zhipu', 'deepseek', 'openai'];
+
+/* ─── Provider management ─── */
+export async function getProviders() {
+  let stored = await getSetting('providers');
+  if (stored) {
+    return JSON.parse(stored);
+  }
+  const providers = DEFAULT_PROVIDERS.map(p => JSON.parse(JSON.stringify(p)));
+  const oldKey = await getSetting('apiKey');
+  if (oldKey) {
+    const z = providers.find(p => p.id === 'zhipu');
+    if (z) {
+      z.apiKey = oldKey;
+      const oldBase = await getSetting('apiBase');
+      const oldModel = await getSetting('defaultModel');
+      if (oldBase) z.apiBase = oldBase;
+      if (oldModel) z.defaultModel = oldModel;
+      const oldTemp = await getSetting('temperature');
+      const oldTopP = await getSetting('topP');
+      const oldDoSample = await getSetting('doSample');
+      if (oldTemp !== null) z.params.temperature.stored = parseFloat(oldTemp);
+      if (oldTopP !== null) z.params.top_p.stored = parseFloat(oldTopP);
+      if (oldDoSample !== null) z.params.do_sample.stored = oldDoSample === 'true';
+    }
+  }
+  await setSetting('providers', JSON.stringify(providers));
+  return providers;
 }
 
-async function getDefaultModel() {
-  return await getSetting('defaultModel') || 'glm-4.7-flash';
+export async function saveProviders(providers) {
+  await setSetting('providers', JSON.stringify(providers));
 }
 
-async function getDefaultTemperature() {
-  const t = await getSetting('temperature');
-  return t !== null ? parseFloat(t) : null;
+export async function getProvider(id) {
+  const providers = await getProviders();
+  return providers.find(p => p.id === id) || providers[0];
 }
 
-async function getDefaultTopP() {
-  const t = await getSetting('topP');
-  return t !== null ? parseFloat(t) : null;
+export function isBuiltinProvider(id) {
+  return BUILTIN_IDS.includes(id);
+}
+
+export function getBuiltinProviders() {
+  return DEFAULT_PROVIDERS;
+}
+
+async function getApiKey() {
+  const providers = await getProviders();
+  const first = providers.find(p => p.apiKey);
+  return first?.apiKey || null;
+}
+
+export async function checkApiKey() {
+  return !!(await getApiKey());
 }
 
 function nowContext() {
@@ -25,72 +102,75 @@ function nowContext() {
   return `当前日期和时间: ${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日 ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}（${d.toLocaleDateString('zh-CN', {weekday:'long'})}）。`;
 }
 
-async function getApiKey() {
-  return await getSetting('apiKey');
-}
-
-export async function checkApiKey() {
-  return !!(await getApiKey());
-}
-
-async function request(messages, opts = {}) {
-  const apiKey = await getApiKey();
-  if (!apiKey) throw new Error('请先在设置中配置 API Key');
-
-  const baseUrl = await getApiBase();
-  const defaultModel = await getDefaultModel();
-
-  const temperature = opts.temperature ?? (await getDefaultTemperature()) ?? 1.0;
-  const topP = opts.top_p ?? (await getDefaultTopP()) ?? 0.95;
-  const doSample = opts.do_sample !== undefined ? opts.do_sample : true;
-
+/* ─── Request body builder ─── */
+function buildRequestBody(provider, opts = {}) {
+  const model = opts.model || provider.defaultModel;
   const body = {
-    model: opts.model || defaultModel,
-    messages,
+    model,
+    messages: opts.messages,
     stream: !!opts.stream,
-    do_sample: doSample,
-    temperature,
-    top_p: topP,
-    max_tokens: (opts.model || defaultModel) === 'glm-4.6v-flash' ? 32768 : (opts.maxTokens ?? 131072),
-    thinking: { type: 'enabled' },
   };
-
+  for (const [key, config] of Object.entries(provider.params)) {
+    if (!config.supported) continue;
+    let value;
+    if (opts[key] !== undefined) {
+      value = opts[key];
+    } else if (config.stored !== undefined) {
+      value = config.stored;
+    } else {
+      value = config.default;
+    }
+    if (value === null || value === undefined) continue;
+    if (key === 'thinking') {
+      body.thinking = value ? { type: 'enabled' } : { type: 'disabled' };
+    } else {
+      body[key] = value;
+    }
+  }
   if (opts.webSearch) {
     body.tools = [{
       type: 'web_search',
       web_search: { enable: true, search_query: opts.searchQuery || '' },
     }];
   }
+  return body;
+}
 
-  const res = await fetch(`${baseUrl}/chat/completions`, {
+async function request(messages, opts = {}) {
+  let providerId = opts.providerId;
+  if (!providerId) {
+    const all = await getProviders();
+    const firstWithKey = all.find(p => p.apiKey);
+    providerId = firstWithKey?.id || 'zhipu';
+  }
+  const provider = await getProvider(providerId);
+  if (!provider.apiKey) throw new Error('请在设置中配置 API Key');
+  const body = buildRequestBody(provider, { ...opts, messages });
+  const res = await fetch(`${provider.apiBase}/chat/completions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${provider.apiKey}`,
     },
     body: JSON.stringify(body),
     signal: opts.signal,
   });
-
   if (!res.ok) {
     let msg = `API ${res.status}`;
     try { const e = await res.json(); msg = e.error?.message || msg; } catch {}
     throw new Error(msg);
   }
-
   return res;
 }
 
 export async function callGLM(messages, opts = {}) {
   if (opts.stream) {
-    let signal = opts.signal;
-    const res = await request(messages, { ...opts, signal });
+    const res = await request(messages, { ...opts });
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
     let buf = '';
     let full = '';
     const onChunk = opts.onChunk || (() => {});
-
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -113,7 +193,6 @@ export async function callGLM(messages, opts = {}) {
     }
     return full;
   }
-
   const res = await request(messages, opts);
   const data = await res.json();
   return data.choices?.[0]?.message?.content || '';
@@ -170,7 +249,6 @@ export async function analyzeFile(content, fileName) {
 export async function chatWithModule(systemPrompt, messages, onChunk, opts = {}) {
   const dateContext = nowContext();
   let finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }];
-
   let msgCopy = messages;
   if (opts.imageData && opts.model?.toLowerCase().includes('v')) {
     const last = msgCopy[msgCopy.length - 1];
@@ -185,16 +263,14 @@ export async function chatWithModule(systemPrompt, messages, onChunk, opts = {})
       });
     }
   }
-
   if (opts.webSearch) {
     const enhancedSystemPrompt = `${dateContext}\n\n${systemPrompt}\n\n你已经通过 web_search 工具获取了最新的联网搜索结果。请将网络搜索到的实时信息与你的训练知识相结合来回答用户的问题。对于时效性强的内容优先采用网络搜索结果，对于背景知识和理论分析可以充分运用你的知识库。请在回答中适当标注信息来源是「网络搜索」还是「知识库」。`;
     finalMessages = [{ role: 'system', content: enhancedSystemPrompt }, ...msgCopy];
   } else {
     finalMessages = [{ role: 'system', content: `${dateContext}\n\n${systemPrompt}` }, ...msgCopy];
   }
-
   return await callGLM(
     finalMessages,
-    { stream: true, onChunk, model: opts.model, signal: opts.signal, webSearch: opts.webSearch, searchQuery: opts.searchQuery }
+    { stream: true, onChunk, model: opts.model, signal: opts.signal, webSearch: opts.webSearch, searchQuery: opts.searchQuery, providerId: opts.providerId }
   );
 }

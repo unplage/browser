@@ -49,10 +49,11 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: var(--font-size); }
 html, body { height: 100%; overflow: hidden; }
 body {
   font-family: var(--font);
-  font-size: var(--font-size);
+  font-size: 1rem;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
@@ -107,10 +108,10 @@ input, textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
+  font-size: 1.143rem;
   color: #fff;
 }
-.app-name { font-size: 14px; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
+.app-name { font-size: 1rem; font-weight: 600; letter-spacing: -0.2px; color: var(--text); }
 
 .topbar-center {
   flex: 1;
@@ -138,14 +139,14 @@ input, textarea {
   min-width: 60px;
   padding: 7px 16px;
   background: transparent;
-  font-size: 14px;
+  font-size: 1rem;
   color: var(--text);
   width: 100%;
 }
 #searchInput::placeholder { color: var(--text-tertiary); }
 #searchBtn {
   padding: 7px 18px;
-  font-size: 13px;
+  font-size: 0.929rem;
   font-weight: 500;
   color: var(--accent);
   border-left: 1px solid var(--border);
@@ -162,7 +163,7 @@ input, textarea {
   width: 34px; height: 34px;
   display: flex; align-items: center; justify-content: center;
   border-radius: var(--radius-xs);
-  font-size: 15px;
+  font-size: 1.071rem;
   transition: var(--transition);
   color: var(--text-secondary);
 }
@@ -196,7 +197,7 @@ input, textarea {
   align-items: center;
   justify-content: space-between;
   padding: 12px 12px 6px;
-  font-size: 10px;
+  font-size: 0.714rem;
   font-weight: 700;
   color: var(--text-tertiary);
   text-transform: uppercase;
@@ -204,7 +205,7 @@ input, textarea {
   flex-shrink: 0;
 }
 #toggleSidebar {
-  font-size: 10px;
+  font-size: 0.714rem;
   padding: 3px 7px;
   border-radius: 5px;
   color: var(--text-tertiary);
@@ -213,7 +214,7 @@ input, textarea {
 #toggleSidebar:hover { background: var(--accent-light); color: var(--accent); }
 
 #hideAllBtn {
-  font-size: 10px;
+  font-size: 0.714rem;
   padding: 3px 7px;
   border-radius: 5px;
   color: var(--text-tertiary);
@@ -234,7 +235,7 @@ input, textarea {
   gap: 8px;
   padding: 8px 10px;
   border-radius: var(--radius-xs);
-  font-size: 13px;
+  font-size: 0.929rem;
   cursor: pointer;
   transition: var(--transition);
   color: var(--text-secondary);
@@ -246,11 +247,11 @@ input, textarea {
   color: var(--accent);
   font-weight: 600;
 }
-.nav-item .icon { font-size: 14px; width: 20px; text-align: center; flex-shrink: 0; }
+.nav-item .icon { font-size: 1rem; width: 20px; text-align: center; flex-shrink: 0; }
 .nav-item .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-item.disabled { opacity: 0.4; }
 .nav-item.disabled .nav-show-btn {
-  font-size: 12px;
+  font-size: 0.857rem;
   padding: 2px 6px;
   border-radius: 4px;
   color: var(--text-tertiary);
@@ -280,24 +281,24 @@ input, textarea {
 .quick-search select {
   padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-xs);
   background: var(--surface-secondary); color: var(--text);
-  font-size: 12px; font-family: inherit; cursor: pointer; outline: none;
+  font-size: 0.857rem; font-family: inherit; cursor: pointer; outline: none;
   flex-shrink: 0; appearance: auto;
 }
 .quick-search input {
   flex: 1; min-width: 0;
   padding: 7px 12px; border: 1px solid var(--border); border-radius: var(--radius-xs);
   background: var(--surface-secondary); color: var(--text);
-  font-size: 13px; font-family: inherit; outline: none; transition: var(--transition);
+  font-size: 0.929rem; font-family: inherit; outline: none; transition: var(--transition);
 }
 .quick-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
 .quick-search .qs-btn {
-  padding: 7px 14px; border-radius: var(--radius-xs); font-size: 12px; font-weight: 500;
+  padding: 7px 14px; border-radius: var(--radius-xs); font-size: 0.857rem; font-weight: 500;
   background: var(--accent); color: #fff; transition: var(--transition); flex-shrink: 0; white-space: nowrap;
 }
 .quick-search .qs-btn:hover { background: var(--accent-hover); }
 .quick-search .qs-bookmark-btn {
   width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-  border-radius: var(--radius-xs); font-size: 15px; color: var(--text-secondary);
+  border-radius: var(--radius-xs); font-size: 1.071rem; color: var(--text-secondary);
   transition: var(--transition); flex-shrink: 0;
 }
 .quick-search .qs-bookmark-btn:hover { background: var(--accent-light); color: var(--accent); }
@@ -305,14 +306,14 @@ input, textarea {
 /* ─── Quick Search Responsive ─── */
 @media (max-width: 768px) {
   .quick-search { padding: 6px 8px; gap: 4px; flex-wrap: wrap; }
-  .quick-search select { font-size: 13px; padding: 7px 10px; }
-  .quick-search input { font-size: 14px; padding: 8px 10px; min-width: 120px; }
-  .quick-search .qs-btn { padding: 8px 12px; font-size: 13px; }
+  .quick-search select { font-size: 0.929rem; padding: 7px 10px; }
+  .quick-search input { font-size: 1rem; padding: 8px 10px; min-width: 120px; }
+  .quick-search .qs-btn { padding: 8px 12px; font-size: 0.929rem; }
 }
 @media (max-width: 480px) {
-  .quick-search select { font-size: 12px; padding: 6px 8px; }
-  .quick-search input { font-size: 13px; padding: 7px 10px; min-width: 80px; }
-  .quick-search .qs-btn { padding: 7px 10px; font-size: 12px; }
+  .quick-search select { font-size: 0.857rem; padding: 6px 8px; }
+  .quick-search input { font-size: 0.929rem; padding: 7px 10px; min-width: 80px; }
+  .quick-search .qs-btn { padding: 7px 10px; font-size: 0.857rem; }
 }
 
 /* ─── Module Grid ─── */
@@ -327,7 +328,7 @@ input, textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
+  font-size: 0.929rem;
   font-weight: 600;
   color: var(--text-secondary);
   padding: 0 2px 8px;
@@ -337,7 +338,7 @@ input, textarea {
   background: var(--accent);
   color: #fff;
   border-radius: 18px;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: 500;
   transition: var(--transition);
   display: flex;
@@ -350,7 +351,7 @@ input, textarea {
   background: var(--accent-gradient);
   color: #fff;
   border-radius: 18px;
-  font-size: 13px;
+  font-size: 0.929rem;
   font-weight: 600;
   transition: var(--transition);
 }
@@ -389,7 +390,7 @@ input, textarea {
   gap: 8px;
 }
 .module-card-header .drag-handle {
-  font-size: 12px;
+  font-size: 0.857rem;
   color: var(--text-tertiary);
   cursor: grab;
   flex-shrink: 0;
@@ -404,7 +405,7 @@ input, textarea {
 .reorder-btn {
   display: none;
   padding: 3px 6px;
-  font-size: 12px;
+  font-size: 0.857rem;
   border-radius: 4px;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
@@ -416,7 +417,7 @@ input, textarea {
 .reorder-btn:hover { background: var(--accent-light); color: var(--accent); }
 .reorder-btn:disabled { opacity: 0.3; cursor: default; background: var(--surface-secondary); color: var(--text-tertiary); }
 .grid-view-title .sort-hint {
-  font-size: 11px;
+  font-size: 0.786rem;
   color: var(--text-tertiary);
   font-weight: 400;
 }
@@ -425,11 +426,11 @@ input, textarea {
   display: flex; align-items: center; justify-content: center;
   background: var(--accent-light);
   border-radius: var(--radius-xs);
-  font-size: 16px;
+  font-size: 1.143rem;
 }
-.module-card-header .title { font-size: 14px; font-weight: 600; }
+.module-card-header .title { font-size: 1rem; font-weight: 600; }
 .module-card-preview {
-  font-size: 12px;
+  font-size: 0.857rem;
   color: var(--text-tertiary);
   line-height: 1.5;
   flex: 1;
@@ -449,7 +450,7 @@ input, textarea {
 .module-card:active .module-card-actions { opacity: 1; }
 .module-card-actions button {
   padding: 4px 8px;
-  font-size: 11px;
+  font-size: 0.786rem;
   border-radius: 5px;
   color: var(--text-tertiary);
   font-weight: 500;
@@ -476,7 +477,7 @@ input, textarea {
   flex-shrink: 0;
 }
 #backToGrid {
-  font-size: 13px;
+  font-size: 0.929rem;
   color: var(--text-secondary);
   padding: 5px 10px;
   border-radius: 7px;
@@ -486,13 +487,13 @@ input, textarea {
   gap: 4px;
 }
 #backToGrid:hover { background: var(--accent-light); color: var(--accent); }
-#chatTitle { flex: 1; font-size: 14px; font-weight: 600; }
+#chatTitle { flex: 1; font-size: 1rem; font-weight: 600; }
 #chatActions {
   display: flex;
   gap: 2px;
 }
 #chatActions button {
-  font-size: 14px;
+  font-size: 1rem;
   padding: 5px 8px;
   border-radius: 6px;
   color: var(--text-tertiary);
@@ -500,7 +501,7 @@ input, textarea {
 }
 #chatActions button:hover { background: var(--accent-light); color: var(--accent); }
 #clearChatBtn:hover { background: rgba(231,76,76,0.1); color: var(--danger); }
-#chatStopBtn { font-size: 14px; padding: 5px 8px; border-radius: 6px; color: var(--danger); transition: var(--transition); }
+#chatStopBtn { font-size: 1rem; padding: 5px 8px; border-radius: 6px; color: var(--danger); transition: var(--transition); }
 #chatStopBtn:hover { background: rgba(231,76,76,0.1); }
 
 #chatMessages {
@@ -529,7 +530,7 @@ input, textarea {
   width: 30px; height: 30px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 .msg.user .msg-avatar { background: var(--accent-gradient); color: #fff; }
@@ -538,7 +539,7 @@ input, textarea {
 .msg-bubble {
   padding: 9px 14px;
   border-radius: 14px;
-  font-size: 13px;
+  font-size: 0.929rem;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
@@ -568,7 +569,7 @@ input, textarea {
   background: rgba(0,0,0,0.06);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-family: 'SF Mono', 'Fira Code', monospace;
 }
 .msg.assistant .msg-bubble h1, .msg.assistant .msg-bubble h2, .msg.assistant .msg-bubble h3, .msg.assistant .msg-bubble h4 {
@@ -576,9 +577,9 @@ input, textarea {
   font-weight: 600;
   line-height: 1.3;
 }
-.msg.assistant .msg-bubble h1 { font-size: 15px; }
-.msg.assistant .msg-bubble h2 { font-size: 14px; }
-.msg.assistant .msg-bubble h3 { font-size: 13px; }
+.msg.assistant .msg-bubble h1 { font-size: 1.071rem; }
+.msg.assistant .msg-bubble h2 { font-size: 1rem; }
+.msg.assistant .msg-bubble h3 { font-size: 0.929rem; }
 
 .msg.streaming .msg-bubble .thinking-text {
   color: var(--text-tertiary);
@@ -597,7 +598,7 @@ input, textarea {
 }
 .msg-copy-btn {
   position: absolute; bottom: 4px; right: 4px; opacity: 0;
-  font-size: 11px; padding: 2px 6px; border-radius: 4px;
+  font-size: 0.786rem; padding: 2px 6px; border-radius: 4px;
   background: var(--surface); border: 1px solid var(--border);
   cursor: pointer; transition: var(--transition); line-height: 1;
 }
@@ -632,7 +633,7 @@ input, textarea {
   background: rgba(0,0,0,0.5);
   color: #fff;
   border-radius: 50%;
-  font-size: 11px;
+  font-size: 0.786rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -679,7 +680,7 @@ input, textarea {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 0.929rem;
   line-height: 1.4;
   resize: none;
   max-height: 120px;
@@ -689,7 +690,7 @@ input, textarea {
 .web-toggle {
   width: 34px; height: 34px; align-self: flex-end;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; font-size: 15px;
+  border-radius: 50%; font-size: 1.071rem;
   background: var(--surface); border: 1px solid var(--border);
   transition: var(--transition); cursor: pointer; flex-shrink: 0;
 }
@@ -698,7 +699,7 @@ input, textarea {
 #chatUploadBtn {
   width: 34px; height: 34px; align-self: flex-end;
   display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; font-size: 15px;
+  border-radius: 50%; font-size: 1.071rem;
   background: var(--surface); border: 1px solid var(--border);
   transition: var(--transition); cursor: pointer; flex-shrink: 0;
 }
@@ -708,7 +709,7 @@ input, textarea {
   background: var(--accent-gradient);
   color: #fff;
   border-radius: 20px;
-  font-size: 13px;
+  font-size: 0.929rem;
   font-weight: 500;
   align-self: flex-end;
   transition: var(--transition);
@@ -733,7 +734,7 @@ input, textarea {
   flex-shrink: 0;
 }
 #browserBack {
-  font-size: 13px;
+  font-size: 0.929rem;
   color: var(--text-secondary);
   padding: 5px 10px;
   border-radius: 7px;
@@ -742,7 +743,7 @@ input, textarea {
 #browserBack:hover { background: var(--accent-light); color: var(--accent); }
 #browserUrl {
   flex: 1;
-  font-size: 12px;
+  font-size: 0.857rem;
   color: var(--text-tertiary);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -764,7 +765,7 @@ input, textarea {
   align-items: center;
   justify-content: center;
   color: var(--text-tertiary);
-  font-size: 14px;
+  font-size: 1rem;
 }
 
 /* ─── Search View ─── */
@@ -783,20 +784,20 @@ input, textarea {
   margin-bottom: 14px;
 }
 #searchBackBtn {
-  font-size: 13px;
+  font-size: 0.929rem;
   color: var(--text-secondary);
   padding: 5px 10px;
   border-radius: 7px;
   transition: var(--transition);
 }
 #searchBackBtn:hover { background: var(--accent-light); color: var(--accent); }
-#searchViewTitle { flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#searchViewTitle { flex: 1; font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #saveSearchBtn {
   padding: 6px 16px;
   background: var(--accent-gradient);
   color: #fff;
   border-radius: 18px;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: 500;
   transition: var(--transition);
   white-space: nowrap;
@@ -807,7 +808,7 @@ input, textarea {
   background: var(--surface);
   border-radius: var(--radius);
   padding: 18px 22px;
-  font-size: 13px;
+  font-size: 0.929rem;
   line-height: 1.7;
   white-space: pre-wrap;
   border: 1px solid var(--border);
@@ -817,16 +818,16 @@ input, textarea {
   font-weight: 600;
   color: var(--text);
 }
-#searchResultContent h1 { font-size: 16px; }
-#searchResultContent h2 { font-size: 15px; }
-#searchResultContent h3 { font-size: 14px; }
+#searchResultContent h1 { font-size: 1.143rem; }
+#searchResultContent h2 { font-size: 1.071rem; }
+#searchResultContent h3 { font-size: 1rem; }
 #searchResultContent strong { font-weight: 600; }
 #searchResultContent hr { margin: 0.8em 0; border: none; border-top: 1px solid var(--border); }
 #searchResultContent code {
   background: rgba(0,0,0,0.04);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 0.857rem;
 }
 
 .search-loading {
@@ -879,9 +880,9 @@ input, textarea {
   padding: 16px 20px;
   border-bottom: 1px solid var(--border);
 }
-.modal-header h3 { font-size: 14px; font-weight: 600; }
+.modal-header h3 { font-size: 1rem; font-weight: 600; }
 .modal-close {
-  font-size: 16px;
+  font-size: 1.143rem;
   padding: 4px 8px;
   border-radius: 5px;
   color: var(--text-tertiary);
@@ -906,16 +907,16 @@ input, textarea {
   padding: 9px 12px;
   background: var(--surface-secondary);
   border-radius: var(--radius-xs);
-  font-size: 13px;
+  font-size: 0.929rem;
   transition: var(--transition);
   border: 1px solid transparent;
 }
 .bookmark-item:hover { border-color: var(--border); background: var(--surface); }
-.bookmark-item .favicon { font-size: 14px; flex-shrink: 0; width: 18px; text-align: center; }
+.bookmark-item .favicon { font-size: 1rem; flex-shrink: 0; width: 18px; text-align: center; }
 .bookmark-item .info { flex: 1; overflow: hidden; }
 .bookmark-item .info .title { font-weight: 500; }
-.bookmark-item .info .url { font-size: 11px; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bookmark-item .del-btn { color: var(--text-tertiary); font-size: 13px; padding: 3px 7px; border-radius: 4px; transition: var(--transition); }
+.bookmark-item .info .url { font-size: 0.786rem; color: var(--text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bookmark-item .del-btn { color: var(--text-tertiary); font-size: 0.929rem; padding: 3px 7px; border-radius: 4px; transition: var(--transition); }
 .bookmark-item .del-btn:hover { background: rgba(231,76,76,0.1); color: var(--danger); }
 
 .bookmark-toolbar {
@@ -926,7 +927,7 @@ input, textarea {
 .bookmark-search {
   flex: 1;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 0.929rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
   background: var(--surface);
@@ -935,7 +936,7 @@ input, textarea {
 .bookmark-search:focus { border-color: var(--accent); }
 .bookmark-sort {
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 0.857rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
   background: var(--surface);
@@ -950,7 +951,7 @@ input, textarea {
 }
 .bookmark-group-header {
   padding: 7px 10px;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: 600;
   color: var(--text-secondary);
   background: var(--surface-secondary);
@@ -984,8 +985,8 @@ input, textarea {
   color: var(--accent);
   background: var(--accent-light);
 }
-.upload-zone .icon { font-size: 32px; display: block; margin-bottom: 8px; }
-.upload-zone .text { font-size: 14px; font-weight: 500; }
+.upload-zone .icon { font-size: 2.286rem; display: block; margin-bottom: 8px; }
+.upload-zone .text { font-size: 1rem; font-weight: 500; }
 
 .file-list { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
 .file-item {
@@ -995,7 +996,7 @@ input, textarea {
   padding: 9px 12px;
   background: var(--surface-secondary);
   border-radius: var(--radius-xs);
-  font-size: 13px;
+  font-size: 0.929rem;
   cursor: pointer;
   transition: var(--transition);
   border: 1px solid transparent;
@@ -1007,29 +1008,29 @@ input, textarea {
 
 /* ─── Settings ─── */
 .settings-form { display: flex; flex-direction: column; gap: 14px; }
-.settings-form label { font-size: 13px; font-weight: 600; color: var(--text); }
+.settings-form label { font-size: 0.929rem; font-weight: 600; color: var(--text); }
 .settings-form input[type="password"] {
   width: 100%;
   padding: 9px 12px;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  font-size: 13px;
+  font-size: 0.929rem;
   transition: var(--transition);
 }
 .settings-form input:focus { border-color: var(--accent); background: var(--surface); box-shadow: 0 0 0 3px var(--accent-light); }
-.settings-form .hint { font-size: 11px; color: var(--text-tertiary); line-height: 1.5; }
+.settings-form .hint { font-size: 0.786rem; color: var(--text-tertiary); line-height: 1.5; }
 
 /* ─── Module Editor ─── */
 .module-editor { display: flex; flex-direction: column; gap: 12px; }
-.module-editor label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.module-editor label { font-size: 0.857rem; font-weight: 600; color: var(--text-secondary); }
 .module-editor input, .module-editor textarea {
   width: 100%;
   padding: 8px 12px;
   background: var(--surface-secondary);
   border: 1px solid var(--border);
   border-radius: var(--radius-xs);
-  font-size: 13px;
+  font-size: 0.929rem;
   transition: var(--transition);
 }
 .module-editor textarea { min-height: 160px; resize: vertical; font-family: var(--font); line-height: 1.6; }
@@ -1038,7 +1039,7 @@ input, textarea {
   padding: 6px 14px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  font-size: 12px;
+  font-size: 0.857rem;
   font-weight: 500;
   align-self: flex-start;
   transition: var(--transition);
@@ -1058,13 +1059,13 @@ input, textarea {
 .history-item:hover { background: var(--surface); border-color: var(--border); }
 .history-item.active { background: var(--accent-light); border-color: var(--accent); }
 .history-item-main { flex: 1; overflow: hidden; }
-.history-item-title { font-weight: 500; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-item-meta { font-size: 11px; color: var(--text-tertiary); margin-top: 2px; }
-.history-current-badge { font-size: 10px; color: var(--accent); font-weight: 600; padding: 2px 8px; background: var(--accent-light); border-radius: 10px; flex-shrink: 0; }
-.history-rename-btn, .history-del-btn { color: var(--text-tertiary); font-size: 12px; padding: 3px 6px; border-radius: 4px; flex-shrink: 0; transition: var(--transition); }
+.history-item-title { font-weight: 500; font-size: 0.929rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-item-meta { font-size: 0.786rem; color: var(--text-tertiary); margin-top: 2px; }
+.history-current-badge { font-size: 0.714rem; color: var(--accent); font-weight: 600; padding: 2px 8px; background: var(--accent-light); border-radius: 10px; flex-shrink: 0; }
+.history-rename-btn, .history-del-btn { color: var(--text-tertiary); font-size: 0.857rem; padding: 3px 6px; border-radius: 4px; flex-shrink: 0; transition: var(--transition); }
 .history-rename-btn:hover { background: var(--accent-light); color: var(--accent); }
 .history-del-btn:hover { background: rgba(231,76,76,0.1); color: var(--danger); }
-.preset-use-btn { padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 500; background: var(--accent); color: #fff; transition: var(--transition); flex-shrink: 0; }
+.preset-use-btn { padding: 4px 12px; border-radius: 12px; font-size: 0.786rem; font-weight: 500; background: var(--accent); color: #fff; transition: var(--transition); flex-shrink: 0; }
 .preset-use-btn:hover { background: var(--accent-hover); }
 
 /* ─── Saved Search Results ─── */
@@ -1079,7 +1080,7 @@ input, textarea {
 }
 .saved-result-item:hover { background: var(--surface); border-color: var(--border); box-shadow: var(--shadow); }
 .saved-result-item .query { font-weight: 600; margin-bottom: 3px; }
-.saved-result-item .meta { font-size: 11px; color: var(--text-tertiary); }
+.saved-result-item .meta { font-size: 0.786rem; color: var(--text-tertiary); }
 .saved-result-item .actions { float: right; }
 .saved-result-item .del-btn {
   color: var(--text-tertiary);
@@ -1095,9 +1096,9 @@ input, textarea {
   padding: 40px 20px;
   color: var(--text-tertiary);
 }
-.empty-state .icon { font-size: 40px; margin-bottom: 10px; }
-.empty-state .text { font-size: 14px; }
-.empty-state .hint { font-size: 12px; color: var(--text-secondary); margin-top: 8px; opacity: 0.7; }
+.empty-state .icon { font-size: 2.857rem; margin-bottom: 10px; }
+.empty-state .text { font-size: 1rem; }
+.empty-state .hint { font-size: 0.857rem; color: var(--text-secondary); margin-top: 8px; opacity: 0.7; }
 
 /* ─── Mobile Menu Button ─── */
 #mobileMenuBtn {
@@ -1105,7 +1106,7 @@ input, textarea {
   width: 34px; height: 34px;
   align-items: center; justify-content: center;
   border-radius: var(--radius-xs);
-  font-size: 18px;
+  font-size: 1.286rem;
   color: var(--text-secondary);
   transition: var(--transition);
   flex-shrink: 0;
@@ -1156,105 +1157,105 @@ input, textarea {
   .app-name { display: none; }
   .topbar-center { flex: 1; min-width: 0; }
   .search-box { max-width: 100%; }
-  #searchInput { font-size: 15px; padding: 8px 14px; }
-  #searchBtn { padding: 8px 14px; font-size: 14px; }
+  #searchInput { font-size: 1.071rem; padding: 8px 14px; }
+  #searchBtn { padding: 8px 14px; font-size: 1rem; }
   #content { padding: 12px 14px; }
   #gridView { grid-template-columns: 1fr; gap: 10px; }
-  .grid-view-title { font-size: 14px; }
-  .grid-view-title .btn-create { font-size: 13px; padding: 6px 16px; }
+  .grid-view-title { font-size: 1rem; }
+  .grid-view-title .btn-create { font-size: 0.929rem; padding: 6px 16px; }
   .grid-view-title .btn-create span { display: none; }
   .module-card { min-height: 110px; padding: 14px; }
-  .module-card-header .icon { width: 30px; height: 30px; font-size: 15px; }
-  .module-card-header .title { font-size: 15px; }
+  .module-card-header .icon { width: 30px; height: 30px; font-size: 1.071rem; }
+  .module-card-header .title { font-size: 1.071rem; }
   .module-card-header .drag-handle { display: none; }
-  .module-card-preview { font-size: 13px; }
+  .module-card-preview { font-size: 0.929rem; }
   .module-card-actions { opacity: 1; }
-  .module-card-actions button { padding: 6px 12px; min-height: 34px; font-size: 12px; }
+  .module-card-actions button { padding: 6px 12px; min-height: 34px; font-size: 0.857rem; }
   .reorder-btn { display: inline-flex; align-items: center; }
-  .nav-item { font-size: 14px; padding: 10px 12px; }
-  .sidebar-header span { font-size: 11px; }
-  .grid-view-title { font-size: 14px; }
+  .nav-item { font-size: 1rem; padding: 10px 12px; }
+  .sidebar-header span { font-size: 0.786rem; }
+  .grid-view-title { font-size: 1rem; }
   .msg { max-width: 95%; }
-  .msg-bubble { padding: 10px 16px; font-size: 15px; }
-  .msg-avatar { width: 32px; height: 32px; font-size: 15px; }
+  .msg-bubble { padding: 10px 16px; font-size: 1.071rem; }
+  .msg-avatar { width: 32px; height: 32px; font-size: 1.071rem; }
   #chatView, #searchView { max-width: 100%; }
   #chatHeader { padding: 4px 0 10px; }
-  #chatTitle { font-size: 15px; }
-  #backToGrid { font-size: 14px; padding: 6px 10px; }
-  #chatActions button { font-size: 15px; padding: 6px 10px; }
+  #chatTitle { font-size: 1.071rem; }
+  #backToGrid { font-size: 1rem; padding: 6px 10px; }
+  #chatActions button { font-size: 1.071rem; padding: 6px 10px; }
   #chatInputArea { gap: 4px; }
-  #chatInput { font-size: 15px; padding: 10px 16px; }
-  #chatSend { padding: 10px 20px; font-size: 15px; }
-  #chatUploadBtn, .web-toggle { width: 40px; height: 40px; font-size: 17px; }
-  #searchViewTitle { font-size: 15px; }
-  #searchBackBtn { font-size: 14px; padding: 6px 10px; }
-  #saveSearchBtn { font-size: 13px; padding: 7px 18px; }
-  #searchResultContent { font-size: 14px; padding: 16px 18px; }
-  #searchResultContent h1 { font-size: 17px; }
-  #searchResultContent h2 { font-size: 16px; }
-  #searchResultContent h3 { font-size: 15px; }
-  #browserUrl { font-size: 13px; padding: 8px 12px; }
-  #browserBack { font-size: 14px; }
+  #chatInput { font-size: 1.071rem; padding: 10px 16px; }
+  #chatSend { padding: 10px 20px; font-size: 1.071rem; }
+  #chatUploadBtn, .web-toggle { width: 40px; height: 40px; font-size: 1.214rem; }
+  #searchViewTitle { font-size: 1.071rem; }
+  #searchBackBtn { font-size: 1rem; padding: 6px 10px; }
+  #saveSearchBtn { font-size: 0.929rem; padding: 7px 18px; }
+  #searchResultContent { font-size: 1rem; padding: 16px 18px; }
+  #searchResultContent h1 { font-size: 1.214rem; }
+  #searchResultContent h2 { font-size: 1.143rem; }
+  #searchResultContent h3 { font-size: 1.071rem; }
+  #browserUrl { font-size: 0.929rem; padding: 8px 12px; }
+  #browserBack { font-size: 1rem; }
   #modalContent { max-width: 96%; width: 96%; }
-  .modal-header h3 { font-size: 15px; }
-  .modal-body { font-size: 14px; }
+  .modal-header h3 { font-size: 1.071rem; }
+  .modal-body { font-size: 1rem; }
   .saved-result-item { padding: 14px; }
-  .saved-result-item .query { font-size: 14px; }
-  .bookmark-item { padding: 12px; font-size: 14px; }
-  .file-item { padding: 12px; font-size: 14px; }
-  .nav-item .icon { font-size: 15px; width: 22px; }
-  .empty-state .icon { font-size: 44px; }
-  .empty-state .text { font-size: 15px; }
+  .saved-result-item .query { font-size: 1rem; }
+  .bookmark-item { padding: 12px; font-size: 1rem; }
+  .file-item { padding: 12px; font-size: 1rem; }
+  .nav-item .icon { font-size: 1.071rem; width: 22px; }
+  .empty-state .icon { font-size: 3.143rem; }
+  .empty-state .text { font-size: 1.071rem; }
 }
 
 @media (max-width: 480px) {
   #topbar { padding: 0 4px; gap: 2px; }
-  .topbar-right button { width: 32px; height: 32px; font-size: 14px; }
+  .topbar-right button { width: 32px; height: 32px; font-size: 1rem; }
   #createModuleBtn { padding: 0 4px; font-size: 0; min-width: 32px; justify-content: center; }
-  #createModuleBtn::before { content: '➕'; font-size: 14px; }
+  #createModuleBtn::before { content: '➕'; font-size: 1rem; }
   #savedResultsBtn { display: none; }
   .topbar-left { gap: 0; }
-  #mobileMenuBtn { width: 32px; height: 32px; font-size: 16px; }
-  .logo { width: 24px; height: 24px; font-size: 13px; }
+  #mobileMenuBtn { width: 32px; height: 32px; font-size: 1.143rem; }
+  .logo { width: 24px; height: 24px; font-size: 0.929rem; }
   .app-name { display: none; }
   .search-box { border-radius: 16px; }
-  #searchInput { padding: 6px 10px; font-size: 14px; }
-  #searchInput::placeholder { font-size: 12px; }
-  #searchBtn { padding: 6px 10px; font-size: 12px; min-width: 0; }
+  #searchInput { padding: 6px 10px; font-size: 1rem; }
+  #searchInput::placeholder { font-size: 0.857rem; }
+  #searchBtn { padding: 6px 10px; font-size: 0.857rem; min-width: 0; }
   #content { padding: 8px 10px; }
   #gridView { gap: 8px; }
-  .grid-view-title { font-size: 13px; }
+  .grid-view-title { font-size: 0.929rem; }
   .module-card { padding: 12px; min-height: 100px; }
-  .module-card-header .icon { width: 26px; height: 26px; font-size: 13px; }
-  .module-card-header .title { font-size: 14px; }
-  .module-card-preview { font-size: 12px; -webkit-line-clamp: 1; }
-  .module-card-actions button { font-size: 11px; padding: 5px 10px; }
+  .module-card-header .icon { width: 26px; height: 26px; font-size: 0.929rem; }
+  .module-card-header .title { font-size: 1rem; }
+  .module-card-preview { font-size: 0.857rem; -webkit-line-clamp: 1; }
+  .module-card-actions button { font-size: 0.786rem; padding: 5px 10px; }
   .msg { max-width: 98%; }
-  .msg-bubble { padding: 9px 12px; font-size: 14px; }
-  .msg-avatar { width: 28px; height: 28px; font-size: 13px; }
+  .msg-bubble { padding: 9px 12px; font-size: 1rem; }
+  .msg-avatar { width: 28px; height: 28px; font-size: 0.929rem; }
   #chatInputArea { gap: 3px; padding: 6px 0; }
-  #chatInput { font-size: 14px; padding: 9px 12px; }
-  #chatSend { padding: 9px 14px; font-size: 14px; }
-  #chatUploadBtn, .web-toggle { width: 36px; height: 36px; font-size: 15px; }
-  #chatTitle { font-size: 14px; }
-  #backToGrid { font-size: 13px; padding: 5px 8px; }
-  #chatActions button { font-size: 14px; padding: 5px 8px; }
-  #searchViewTitle { font-size: 14px; }
-  #searchResultContent { font-size: 13px; padding: 14px 16px; }
-  #searchResultContent h1 { font-size: 16px; }
-  #searchResultContent h2 { font-size: 15px; }
-  #searchResultContent h3 { font-size: 14px; }
+  #chatInput { font-size: 1rem; padding: 9px 12px; }
+  #chatSend { padding: 9px 14px; font-size: 1rem; }
+  #chatUploadBtn, .web-toggle { width: 36px; height: 36px; font-size: 1.071rem; }
+  #chatTitle { font-size: 1rem; }
+  #backToGrid { font-size: 0.929rem; padding: 5px 8px; }
+  #chatActions button { font-size: 1rem; padding: 5px 8px; }
+  #searchViewTitle { font-size: 1rem; }
+  #searchResultContent { font-size: 0.929rem; padding: 14px 16px; }
+  #searchResultContent h1 { font-size: 1.143rem; }
+  #searchResultContent h2 { font-size: 1.071rem; }
+  #searchResultContent h3 { font-size: 1rem; }
   #modalContent { max-width: 98%; width: 98%; border-radius: var(--radius-sm); }
   .modal-header { padding: 12px 14px; }
-  .modal-header h3 { font-size: 14px; }
+  .modal-header h3 { font-size: 1rem; }
   .modal-body { padding: 12px 14px; }
   .modal-footer { padding: 10px 14px; }
   #chatHeader { padding: 2px 0 8px; }
   .empty-state { padding: 24px 14px; }
-  .empty-state .icon { font-size: 36px; }
-  .empty-state .text { font-size: 14px; }
-  #browserUrl { font-size: 12px; }
-  #searchBackBtn, #browserBack { font-size: 13px; padding: 5px 8px; }
+  .empty-state .icon { font-size: 2.571rem; }
+  .empty-state .text { font-size: 1rem; }
+  #browserUrl { font-size: 0.857rem; }
+  #searchBackBtn, #browserBack { font-size: 0.929rem; padding: 5px 8px; }
 }
 
 /* ─── Skeleton ─── */
@@ -1274,7 +1275,7 @@ input, textarea {
 /* ─── Sidebar Footer (version) ─── */
 .sidebar-footer {
   padding: 8px 12px;
-  font-size: 10px;
+  font-size: 0.714rem;
   color: var(--text-tertiary);
   border-top: 1px solid var(--border-light);
   flex-shrink: 0;
@@ -1288,7 +1289,7 @@ input, textarea {
   pointer-events: none; align-items: center;
 }
 .toast {
-  padding: 10px 22px; border-radius: 10px; font-size: 13px; font-weight: 500;
+  padding: 10px 22px; border-radius: 10px; font-size: 0.929rem; font-weight: 500;
   color: #fff; box-shadow: var(--shadow-lg);
   animation: toastIn 0.3s ease; pointer-events: auto;
   white-space: nowrap; max-width: 90vw; text-align: center;

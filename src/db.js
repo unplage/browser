@@ -1,4 +1,4 @@
-let db;
+export let db;
 export let dbReady = false;
 
 try {

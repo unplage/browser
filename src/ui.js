@@ -824,7 +824,7 @@ export function showSettingsPanel(providers, theme, onSave, extra = {}) {
       a.href = url; a.download = `ai-browser-backup-${Date.now()}.json`; a.click();
       URL.revokeObjectURL(url);
       showToast('数据已导出', 'success');
-    });
+    }).catch(e => showToast('导出失败: ' + e.message, 'error'));
   };
   importAllBtn.onclick = () => {
     const input = document.createElement('input');

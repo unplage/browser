@@ -76,7 +76,7 @@ Each provider declares supported params in its `params` map. `buildRequestBody()
 
 ## Service Worker (`sw.js`)
 
-Dynamic `BASE_PATH` computed from SW URL (supports sub-path deployment). Cache version suffix is `v19` (line 9). Navigation (HTML): **network-first** → fallback to cache. Static resources (js/css/png/etc): **cache-first**. **Bump the `v19` suffix on any static asset change** to force re-cache.
+Dynamic `BASE_PATH` computed from SW URL (supports sub-path deployment). Cache version suffix is `v20` (line 9). Navigation (HTML): **network-first** → fallback to cache. Static resources (js/css/png/etc): **cache-first**. **Bump the `v20` suffix on any static asset change** to force re-cache.
 
 ## Keyboard shortcuts
 

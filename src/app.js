@@ -61,9 +61,6 @@ const state = {
 
   renderAll();
 
-  const providers = await api.getProviders();
-  updateCSP(providers);
-
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('[SW] 注册失败:', e));
   }
@@ -505,21 +502,6 @@ async function openFileUpload() {
   });
 }
 
-function updateCSP(providers) {
-  const allowedHosts = new Set(['open.bigmodel.cn']);
-  providers.forEach(p => {
-    try {
-      const host = new URL(p.apiBase).hostname;
-      if (host) allowedHosts.add(host);
-    } catch {}
-  });
-  const connectSrc = [...allowedHosts].join(' https://');
-  const meta = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
-  if (meta) {
-    meta.content = meta.content.replace(/connect-src[^;]+/, `connect-src 'self' https://${connectSrc}`);
-  }
-}
-
 /* ─── Settings ─── */
 async function openSettings() {
   const providers = await api.getProviders();
@@ -535,7 +517,6 @@ async function openSettings() {
       await db.setSetting('fontSize', fontSizeVal.toString());
       ui.applyFontSize(fontSizeVal);
     }
-    updateCSP(updatedProviders);
     ui.showToast('已保存', 'success');
   }, {
     onOpenSavedResults: openSavedResults,

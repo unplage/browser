@@ -1239,7 +1239,7 @@ export function showModuleEditor(module, onSave, callbacks = {}) {
       const dl = form.querySelector('#modModelList');
       dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
       const mi = form.querySelector('#modModel');
-      if (p.defaultModel && !mi.value) mi.value = p.defaultModel;
+      if (p.defaultModel) mi.value = p.defaultModel;
     }
   });
 
@@ -1312,7 +1312,7 @@ export function showCreateModule(onCreate, providers = []) {
       const dl = form.querySelector('#newModModelList');
       dl.innerHTML = (p.models || []).map(m => `<option value="${escapeHtml(m)}">`).join('');
       const mi = form.querySelector('#newModModel');
-      if (p.defaultModel && !mi.value) mi.value = p.defaultModel;
+      if (p.defaultModel) mi.value = p.defaultModel;
     }
   });
 

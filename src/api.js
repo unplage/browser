@@ -122,7 +122,11 @@ function buildRequestBody(provider, opts = {}) {
     }
     if (value === null || value === undefined) continue;
     if (key === 'thinking') {
-      body.thinking = value ? { type: 'enabled' } : { type: 'disabled' };
+      if (provider.id === 'zhipu') {
+        body.thinking = value ? { type: 'enabled' } : { type: 'disabled' };
+      } else {
+        body.thinking = !!value;
+      }
     } else {
       body[key] = value;
     }

@@ -76,7 +76,7 @@ export async function saveProviders(providers) {
 
 export async function getProvider(id) {
   const providers = await getProviders();
-  return providers.find(p => p.id === id) || providers[0];
+  return providers.find(p => p.id === id) || providers[0] || null;
 }
 
 export function isBuiltinProvider(id) {
@@ -144,6 +144,7 @@ async function request(messages, opts = {}) {
     providerId = firstWithKey?.id || 'zhipu';
   }
   const provider = await getProvider(providerId);
+  if (!provider) throw new Error(`未找到 Provider: ${providerId}，请在设置中添加 Provider`);
   if (!provider.apiKey) throw new Error('请在设置中配置 API Key');
   const body = buildRequestBody(provider, { ...opts, messages });
   const res = await fetch(`${provider.apiBase}/chat/completions`, {

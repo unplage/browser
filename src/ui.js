@@ -647,13 +647,14 @@ function renderProviderCard(provider, isBuiltin, onUpdate, onDelete) {
   }
   fields.appendChild(paramsContainer);
 
-  if (!isBuiltin) {
-    const delBtn = document.createElement('button');
-    delBtn.textContent = '🗑️ 删除此 Provider';
-    delBtn.style.cssText = 'padding:6px 14px;border-radius:16px;font-size:11px;border:1px solid var(--danger);color:var(--danger);background:transparent;cursor:pointer;margin-top:6px';
-    delBtn.onclick = () => { if (onDelete) onDelete(); };
-    fields.appendChild(delBtn);
-  }
+  const delBtn = document.createElement('button');
+  delBtn.textContent = '🗑️ 删除此 Provider';
+  delBtn.style.cssText = 'padding:6px 14px;border-radius:16px;font-size:11px;border:1px solid var(--danger);color:var(--danger);background:transparent;cursor:pointer;margin-top:6px';
+  delBtn.onclick = async () => {
+    const ok = await showConfirm('确认删除此 Provider？所有使用该 Provider 的模块将无法正常对话。');
+    if (ok && onDelete) onDelete();
+  };
+  fields.appendChild(delBtn);
 
   body.appendChild(fields);
   card.appendChild(header);
@@ -708,10 +709,8 @@ export function showSettingsPanel(providers, theme, onSave, extra = {}) {
       const card = renderProviderCard(p, isBuiltin,
         null,
         () => {
-          if (!isBuiltin) {
-            providers.splice(i, 1);
-            renderProviders();
-          }
+          providers.splice(i, 1);
+          renderProviders();
         }
       );
       listContainer.appendChild(card);

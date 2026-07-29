@@ -650,11 +650,26 @@ function renderProviderCard(provider, isBuiltin, onUpdate, onDelete) {
   const delBtn = document.createElement('button');
   delBtn.textContent = '🗑️ 删除此 Provider';
   delBtn.style.cssText = 'padding:6px 14px;border-radius:16px;font-size:11px;border:1px solid var(--danger);color:var(--danger);background:transparent;cursor:pointer;margin-top:6px';
-  delBtn.onclick = async () => {
-    const ok = await showConfirm('确认删除此 Provider？所有使用该 Provider 的模块将无法正常对话。');
-    if (ok && onDelete) onDelete();
+  delBtn.onclick = () => {
+    delBtn.style.display = 'none';
+    confirmRow.style.display = 'flex';
   };
   fields.appendChild(delBtn);
+
+  const confirmRow = document.createElement('div');
+  confirmRow.style.cssText = 'display:none;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--text-tertiary)';
+  confirmRow.textContent = '确认删除？';
+  const confirmBtn = document.createElement('button');
+  confirmBtn.textContent = '确认';
+  confirmBtn.style.cssText = 'padding:4px 12px;border-radius:12px;font-size:11px;border:none;color:#fff;background:var(--danger);cursor:pointer';
+  confirmBtn.onclick = () => { if (onDelete) onDelete(); };
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '取消';
+  cancelBtn.style.cssText = 'padding:4px 12px;border-radius:12px;font-size:11px;border:1px solid var(--border);color:var(--text-secondary);background:transparent;cursor:pointer';
+  cancelBtn.onclick = () => { confirmRow.style.display = 'none'; delBtn.style.display = ''; };
+  confirmRow.appendChild(confirmBtn);
+  confirmRow.appendChild(cancelBtn);
+  fields.appendChild(confirmRow);
 
   body.appendChild(fields);
   card.appendChild(header);

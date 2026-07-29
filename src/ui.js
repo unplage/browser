@@ -500,12 +500,26 @@ export function showModal(title, bodyEl, footerEl) {
 }
 
 /* ─── Settings ─── */
-function renderParamControl(paramKey, config, currentVal, onChange) {
+function renderParamControl(paramKey, config, currentVal, onChange, enabled, onToggle) {
   const val = currentVal !== undefined ? currentVal : config.default;
   const container = document.createElement('div');
-  container.style.cssText = 'padding:4px 0';
+  container.style.cssText = 'padding:4px 0;opacity:' + (enabled !== false ? '1' : '0.4');
   const label = document.createElement('div');
-  label.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary)';
+  label.style.cssText = 'display:flex;align-items:center;gap:4px;font-size:12px;color:var(--text-secondary)';
+
+  const toggle = document.createElement('input');
+  toggle.type = 'checkbox';
+  toggle.checked = enabled !== false;
+  toggle.title = '启用/禁用此参数';
+  toggle.style.cssText = 'margin:0;cursor:pointer';
+  toggle.addEventListener('change', function() {
+    container.style.opacity = this.checked ? '1' : '0.4';
+    const inputs = container.querySelectorAll('input:not(.param-toggle), select');
+    inputs.forEach(el => el.disabled = !this.checked);
+    if (onToggle) onToggle(this.checked);
+  });
+  toggle.classList.add('param-toggle');
+  label.appendChild(toggle);
 
   if (config.type === 'range') {
     const span = document.createElement('span');
@@ -520,6 +534,7 @@ function renderParamControl(paramKey, config, currentVal, onChange) {
     input.max = config.max ?? 1;
     input.step = config.step ?? 0.05;
     input.value = val;
+    input.disabled = enabled === false;
     input.style.cssText = 'width:100%';
     input.addEventListener('input', function() {
       span.textContent = `${displayName}: ${this.value}`;
@@ -533,18 +548,21 @@ function renderParamControl(paramKey, config, currentVal, onChange) {
     const input = document.createElement('input');
     input.type = 'number';
     input.value = val;
+    input.disabled = enabled === false;
     input.style.cssText = 'width:100px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:12px;color:var(--text)';
     input.addEventListener('input', function() { onChange(parseInt(this.value, 10) || config.default); });
     container.appendChild(label);
     container.appendChild(input);
   } else if (config.type === 'boolean') {
+    label.appendChild(document.createTextNode(paramKey + ': '));
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = !!val;
+    cb.disabled = enabled === false;
     cb.addEventListener('change', function() { onChange(this.checked); });
     label.appendChild(cb);
     const text = document.createElement('span');
-    text.textContent = paramKey;
+    text.textContent = '启用';
     label.appendChild(text);
     container.appendChild(label);
   } else if (config.type === 'select') {
@@ -553,6 +571,7 @@ function renderParamControl(paramKey, config, currentVal, onChange) {
     label.appendChild(span);
     const sel = document.createElement('select');
     sel.style.cssText = 'padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface-secondary);font-size:12px;color:var(--text)';
+    sel.disabled = enabled === false;
     (config.options || []).forEach(opt => {
       const o = document.createElement('option');
       o.value = opt;
@@ -614,12 +633,15 @@ function renderProviderCard(provider, isBuiltin, onUpdate, onDelete) {
   const paramsContainer = document.createElement('div');
 
   const paramValues = {};
+  const paramEnabled = {};
   for (const [key, config] of Object.entries(provider.params)) {
-    if (!config.supported) continue;
+    paramEnabled[key] = config.supported !== false;
     const currentVal = config.stored !== undefined ? config.stored : config.default;
     paramValues[key] = currentVal;
     const control = renderParamControl(key, config, currentVal, (newVal) => {
       paramValues[key] = newVal;
+    }, config.supported !== false, (checked) => {
+      paramEnabled[key] = checked;
     });
     paramsContainer.appendChild(control);
   }
@@ -654,7 +676,7 @@ function renderProviderCard(provider, isBuiltin, onUpdate, onDelete) {
     };
     for (const key of Object.keys(updated.params)) {
       if (paramValues[key] !== undefined) {
-        updated.params[key] = { ...updated.params[key], stored: paramValues[key] };
+        updated.params[key] = { ...updated.params[key], stored: paramValues[key], supported: paramEnabled[key] !== false };
       }
     }
     return updated;
@@ -711,6 +733,7 @@ export function showSettingsPanel(providers, theme, onSave, extra = {}) {
         btn.style.cssText = 'display:block;width:100%;padding:8px;margin:4px 0;border:1px solid var(--border);border-radius:var(--radius-xs);background:var(--surface);cursor:pointer;font-size:13px;text-align:left';
         btn.onclick = () => {
           const fresh = JSON.parse(JSON.stringify(b));
+          fresh.id = b.id + '_' + Date.now();
           fresh.apiKey = '';
           providers.push(fresh);
           renderProviders();

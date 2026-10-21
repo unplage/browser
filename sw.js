@@ -1,4 +1,4 @@
-// sw.js — Service Worker（v3）
+// sw.js — Service Worker（v4）
 // 变化：
 //   1. 预缓存应用外壳 + 全部本地 ES 模块（离线可用）
 //   2. 跨域 CDN 依赖改为 stale-while-revalidate，交给 Cache Storage 托管
@@ -6,7 +6,7 @@
 //   4. 缓存版本随静态资源变更手动提升
 
 const BASE_PATH = self.location.pathname.replace(/[^/]+$/, '');
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE_NAME = `aibrowser-${BASE_PATH.replace(/\//g, '-') || 'root'}-${VERSION}`;
 
 const LOCAL_ASSETS = [

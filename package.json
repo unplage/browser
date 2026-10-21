@@ -1,16 +1,25 @@
 {
-  "name": "browser-local",
-  "version": "1.0.0",
-  "description": "",
-  "main": "sw.js",
+  "name": "ai-browser-pwa",
+  "version": "2.0.0",
+  "description": "多 Provider · RAG · Agent 的模块化 AI 浏览器 PWA（纯前端，零构建）",
+  "type": "module",
+  "main": "src/app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "serve": "python3 -m http.server 8080",
+    "test": "node --test tests/*.test.js",
+    "test:e2e": "node run-test.cjs",
+    "test:all": "npm run test && npm run test:e2e"
   },
-  "keywords": [],
+  "keywords": [
+    "pwa",
+    "llm",
+    "rag",
+    "agent",
+    "dexie"
+  ],
   "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "dependencies": {
+  "license": "MIT",
+  "devDependencies": {
     "playwright": "^1.61.1"
   }
 }

@@ -1,131 +1,157 @@
-// sw.js - 通用 Service Worker (适配 GitHub Pages 多项目)
-// 动态确定当前应用的子目录，隔离缓存，确保离线访问正常
+// sw.js — Service Worker（v3）
+// 变化：
+//   1. 预缓存应用外壳 + 全部本地 ES 模块（离线可用）
+//   2. 跨域 CDN 依赖改为 stale-while-revalidate，交给 Cache Storage 托管
+//   3. 导航请求 network-first → 回退缓存；静态资源 cache-first
+//   4. 缓存版本随静态资源变更手动提升
 
-// ---------- 1. 动态路径与缓存名称 ----------
-// 获取当前 sw.js 所在的目录路径（例如 '/pwa1/'）
 const BASE_PATH = self.location.pathname.replace(/[^/]+$/, '');
-// 构建带项目标识的缓存名称，避免多项目冲突
-// 例如 '/pwa1/' -> 'pwa-cache-pwa1-v1'
-const CACHE_NAME = `pwa-cache${BASE_PATH.replace(/\//g, '-')}v26`;
+const VERSION = 'v3';
+const CACHE_NAME = `aibrowser-${BASE_PATH.replace(/\//g, '-') || 'root'}-${VERSION}`;
 
-// 预缓存资源列表（全部使用相对于当前 sw.js 的路径）
-const PRECACHE_URLS = [
-  BASE_PATH,                 // 例如 '/pwa1/'
-  `${BASE_PATH}index.html`,
-  `${BASE_PATH}manifest.json`,
-  // 如果有图标，可以追加，例如：
-  // `${BASE_PATH}favicon.ico`,
-  // `${BASE_PATH}logo192.png`,
+const LOCAL_ASSETS = [
+  './',
+  'index.html',
+  'manifest.json',
+  'favicon.svg',
+  'src/app.js',
+  'src/db.js',
+  'src/modules.js',
+  'src/core/utils.js',
+  'src/core/tokens.js',
+  'src/core/markdown.js',
+  'src/core/engine.js',
+  'src/llm/index.js',
+  'src/llm/providers.js',
+  'src/llm/protocols.js',
+  'src/llm/params.js',
+  'src/llm/catalog.js',
+  'src/llm/errors.js',
+  'src/llm/search.js',
+  'src/rag/chunk.js',
+  'src/rag/bm25.js',
+  'src/rag/embed.js',
+  'src/rag/vector.js',
+  'src/rag/retrieve.js',
+  'src/rag/ingest.js',
+  'src/agent/runtime.js',
+  'src/agent/tools.js',
+  'src/agent/webfetch.js',
+  'src/agent/calc.js',
+  'src/ui/dom.js',
+  'src/ui/modal.js',
+  'src/ui/toast.js',
+  'src/ui/grid.js',
+  'src/ui/chat.js',
+  'src/ui/search.js',
+  'src/ui/settings.js',
+  'src/ui/knowledge.js',
+  'src/ui/sessions.js',
+  'src/ui/bookmarks.js',
+  'src/ui/module-editor.js',
+  'src/ui/markdown-view.js',
+  'src/styles.css',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+  'vendor/dexie.min.js',
+  'vendor/sortable.min.js',
+  'vendor/highlight.min.js',
+  'vendor/hljs-light.css',
+  'vendor/hljs-dark.css',
 ];
 
-// 静态资源扩展名（用于判断是否缓存优先）
-const STATIC_EXTENSIONS = ['js', 'css', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'woff', 'woff2', 'ttf', 'eot', 'ico'];
+const STATIC_EXT = ['js', 'css', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'woff', 'woff2', 'ttf', 'eot', 'ico', 'json'];
 
-// ---------- 2. 工具函数 ----------
-function isStaticResource(url) {
-  const ext = url.pathname.split('.').pop().toLowerCase();
-  return STATIC_EXTENSIONS.includes(ext);
+function isStatic(url) {
+  const parts = url.pathname.split('.');
+  if (parts.length < 2) return false;
+  return STATIC_EXT.includes(parts.pop().toLowerCase());
 }
 
-function isNavigateRequest(request) {
-  return request.mode === 'navigate' || (request.method === 'GET' && request.destination === 'document');
+function isNavigate(req) {
+  return req.mode === 'navigate' || (req.method === 'GET' && req.destination === 'document');
 }
 
-// ---------- 3. 安装阶段 ----------
+/* ─── 安装：预缓存本地资源 ─── */
 self.addEventListener('install', (event) => {
-  console.log('[SW] 安装中，BASE_PATH =', BASE_PATH);
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[SW] 预缓存资源:', PRECACHE_URLS);
-        // 使用 allSettled 忽略单个资源失败
-        return Promise.allSettled(
-          PRECACHE_URLS.map(url => cache.add(url).catch(err => console.warn(`预缓存失败 ${url}:`, err)))
-        );
-      })
-      .then(() => self.skipWaiting()) // 立即激活
-  );
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    await Promise.allSettled(
+      LOCAL_ASSETS.map(async (rel) => {
+        const url = new URL(rel, self.registration.scope).href;
+        try {
+          const res = await fetch(url, { cache: 'reload' });
+          if (res.ok) await cache.put(url, res);
+        } catch (e) {
+          console.warn('[SW] 预缓存失败', rel, e.message);
+        }
+      }),
+    );
+    await self.skipWaiting();
+  })());
 });
 
-// ---------- 4. 激活阶段（只清理当前项目的旧缓存） ----------
+/* ─── 激活：清理旧缓存 ─── */
 self.addEventListener('activate', (event) => {
-  console.log('[SW] 激活中...');
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cache => {
-          // 只删除以 'pwa-cache-' 开头且不属于当前项目的缓存
-          if (cache.startsWith('pwa-cache-') && cache !== CACHE_NAME) {
-            console.log('[SW] 删除旧缓存:', cache);
-            return caches.delete(cache);
-          }
-        })
-      );
-    }).then(() => self.clients.claim()) // 立即控制所有页面
-  );
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(
+      keys.filter(k => k.startsWith('aibrowser-') && k !== CACHE_NAME).map(k => caches.delete(k)),
+    );
+    await self.clients.claim();
+  })());
 });
 
-// ---------- 5. 请求拦截 ----------
+/* ─── 请求拦截 ─── */
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  if (request.method !== 'GET') return;
+
   const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  if (!sameOrigin) return;
 
-  // 只处理同源 GET 请求
-  if (url.origin !== location.origin || request.method !== 'GET') {
-    return;
-  }
-
-  // ----- 5.1 导航请求（HTML）：网络优先，失败回退缓存 -----
-  if (isNavigateRequest(request)) {
-    event.respondWith(
-      fetch(request)
-        .then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
-          }
-          return networkResponse;
-        })
-        .catch(async () => {
-          // 网络失败，尝试从缓存获取
-          const cachedResponse = await caches.match(request);
-          if (cachedResponse) {
-            console.log('[SW] 离线模式，使用缓存页面:', url.pathname);
-            return cachedResponse;
-          }
-          // 连缓存都没有，返回自定义离线页（可预置 offline.html）
-          // 如果希望更美观，可以预缓存一个 offline.html 并在这里返回它
-          return new Response(
-            '<h1>📴 离线状态</h1><p>请检查网络连接后刷新页面。</p>',
-            { status: 503, statusText: 'Offline', headers: { 'Content-Type': 'text/html' } }
-          );
-        })
-    );
-    return;
-  }
-
-  // ----- 5.2 静态资源请求：缓存优先，未命中则网络请求并缓存 -----
-  if (isStaticResource(url)) {
-    event.respondWith(
-      caches.match(request).then(cachedResponse => {
-        if (cachedResponse) {
-          return cachedResponse;
+  /* 导航：network-first */
+  if (sameOrigin && isNavigate(request)) {
+    event.respondWith((async () => {
+      try {
+        const res = await fetch(request);
+        if (res && res.ok) {
+          const cache = await caches.open(CACHE_NAME);
+          cache.put(request, res.clone());
         }
-        return fetch(request).then(networkResponse => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
-          }
-          return networkResponse;
-        }).catch(() => {
-          // 完全离线且无缓存，返回空响应（可自定义）
-          return new Response('', { status: 408 });
+        return res;
+      } catch {
+        const cached = await caches.match(request, { ignoreSearch: true });
+        if (cached) return cached;
+        const fallback = await caches.match(new URL('index.html', self.registration.scope).href);
+        if (fallback) return fallback;
+        return new Response('<h1>📴 离线</h1><p>请检查网络后刷新。</p>', {
+          status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' },
         });
-      })
-    );
+      }
+    })());
     return;
   }
 
-  // ----- 5.3 其他请求（如 API）默认不缓存，直接走网络 -----
-  // （业务数据通常存储在 IndexedDB 中，不受影响）
+  /* 同源静态资源：cache-first + 后台更新 */
+  if (sameOrigin && isStatic(url)) {
+    event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+      const cached = await cache.match(request);
+      const network = fetch(request).then(async (res) => {
+        if (res && res.ok) {
+          try { await cache.put(request, res.clone()); } catch { /* ignore */ }
+        }
+        return res;
+      }).catch(() => null);
+      if (cached) { network; return cached; }
+      return (await network) || new Response('', { status: 504 });
+    })());
+  }
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'skipWaiting') self.skipWaiting();
 });

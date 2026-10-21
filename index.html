@@ -3,29 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#007aff">
+<meta name="theme-color" content="#4f6ef7">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; connect-src 'self' https:; img-src 'self' data: https://www.google.com; frame-src 'self' https: http:; font-src 'self' data:;">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="description" content="多 Provider · 知识库 RAG · Agent 工具链的模块化 AI 浏览器 PWA">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; img-src 'self' data: blob: https://www.google.com; frame-src 'self'; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
 <link rel="manifest" href="./manifest.json">
 <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./favicon.svg">
 <link rel="stylesheet" href="./src/styles.css">
-<title>AI Browser</title>
+<title>AI Browser · 多模型知识库 Agent</title>
 </head>
 <body>
 <header id="topbar">
   <div class="topbar-left">
-    <button id="mobileMenuBtn" title="菜单" aria-label="菜单">☰</button>
+    <button id="mobileMenuBtn" title="切换侧边栏" aria-label="切换侧边栏">☰</button>
     <span class="logo">🤖</span>
     <span class="app-name">AI Browser</span>
   </div>
   <div class="topbar-center">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="联网搜索，获取可信聚合分析...">
+      <input type="text" id="searchInput" placeholder="联网搜索，获取可核验的聚合分析…" autocomplete="off">
       <button id="searchBtn">搜索</button>
     </div>
   </div>
   <div class="topbar-right">
-    <button id="uploadBtn" title="上传文件分析" aria-label="上传文件分析">📎</button>
+    <button id="kbBtn" title="知识库 (Ctrl+B)" aria-label="知识库">📚</button>
+    <button id="uploadBtn" title="添加资料到知识库" aria-label="添加资料">📎</button>
     <button id="settingsBtn" title="设置" aria-label="设置">⚙️</button>
   </div>
 </header>
@@ -36,7 +40,6 @@
       <span>📋 模块</span>
       <div>
         <button id="hideAllBtn" title="隐藏全部模块" aria-label="隐藏全部模块">👁️</button>
-        <button id="toggleSidebar" aria-label="切换侧边栏">◀</button>
       </div>
     </div>
     <nav id="moduleNav"></nav>
@@ -49,62 +52,70 @@
 
     <div id="chatView" style="display:none">
       <div id="chatHeader">
-        <button id="backToGrid">← 返回</button>
-        <span id="chatTitle"></span>
+        <button id="backToGrid" title="返回">←</button>
+        <div class="chat-title-wrap">
+          <span id="chatTitle"></span>
+          <span id="chatSubtitle"></span>
+        </div>
         <div id="chatActions">
-          <button id="chatNewBtn" title="新建对话" aria-label="新建对话">➕</button>
-          <button id="chatHistoryBtn" title="对话历史" aria-label="对话历史">📋</button>
+          <button id="chatNewBtn" title="新建会话" aria-label="新建会话">➕</button>
+          <button id="chatHistoryBtn" title="会话列表" aria-label="会话列表">🗂️</button>
           <button id="clearChatBtn" title="清空对话" aria-label="清空对话">🗑️</button>
-          <button id="chatStopBtn" title="停止思考" aria-label="停止思考" style="display:none">⏹️</button>
+          <button id="chatStopBtn" title="停止生成" aria-label="停止生成" style="display:none">⏹️</button>
           <button id="chatMenuBtn" title="编辑模块" aria-label="编辑模块">✏️</button>
         </div>
       </div>
       <div id="chatMessages"></div>
       <div id="chatInputArea">
-        <textarea id="chatInput" placeholder="输入消息..." rows="1"></textarea>
-        <button id="chatUploadBtn" title="上传文件" aria-label="上传文件">📎</button>
-        <button class="web-toggle" id="chatWebToggle" title="联网搜索" aria-label="联网搜索">🌐</button>
-        <button id="chatSend">发送</button>
+        <div id="chatImagePreview" class="chat-image-preview" style="display:none"></div>
+        <div class="chat-input-row">
+          <textarea id="chatInput" placeholder="输入消息…（Enter 发送，Shift+Enter 换行）" rows="1"></textarea>
+          <div class="chat-input-buttons">
+            <button id="chatUploadBtn" title="上传文件或图片" aria-label="上传文件">📎</button>
+            <button class="chat-toggle" id="chatWebToggle" title="联网搜索" aria-label="联网搜索">🌐</button>
+            <button class="chat-toggle" id="chatKnowledgeToggle" title="知识库" aria-label="知识库">📚</button>
+            <button class="chat-toggle" id="chatAgentToggle" title="Agent 工具链" aria-label="Agent">🤖</button>
+            <button id="chatSend">发送</button>
+          </div>
+        </div>
+        <div id="chatContextInfo" class="chat-context-info"></div>
       </div>
-      <input type="file" id="chatFileInput" style="display:none" accept=".txt,.md,.json,.csv,.js,.py,.html,.ts,.jsx,.tsx,.css,.xml,.yaml,.yml,.log,.ini,.cfg,image/*">
+      <input type="file" id="chatFileInput" style="display:none" accept=".txt,.md,.markdown,.json,.jsonl,.csv,.tsv,.xml,.yaml,.yml,.html,.htm,.js,.ts,.tsx,.jsx,.py,.java,.go,.rs,.c,.cpp,.h,.sh,.sql,.log,.ini,.cfg,.toml,image/*">
     </div>
 
     <div id="searchView" style="display:none">
       <div id="searchViewHeader">
         <button id="searchBackBtn">← 返回</button>
         <span id="searchViewTitle">搜索结果</span>
-        <button id="saveSearchBtn">💾 保存</button>
+        <button id="saveSearchBtn" style="display:none">💾 保存</button>
       </div>
       <div id="searchResultContent"></div>
-    </div>
-
-    <div id="browserView" style="display:none">
-      <div id="browserHeader">
-        <button id="browserBack">← 返回</button>
-        <span id="browserUrl"></span>
-        <button id="browserOpenExternal" title="在外置浏览器打开">↗️</button>
-      </div>
-      <iframe id="browserFrame" sandbox="allow-scripts allow-forms allow-popups"></iframe>
     </div>
   </main>
 </div>
 
 <div id="modalOverlay" style="display:none">
-  <div id="modalContent"></div>
+  <div id="modalStack"></div>
 </div>
 
 <div id="toastContainer"></div>
 
 <footer id="statusbar">
-  <span class="status-dot">●</span><span>模型在线</span>
-  <span class="sep">|</span><span>GLM-4.7-Flash / GLM-4.6V-Flash</span>
-  <span class="sep">|</span><span id="moduleCount">模块: 0/12</span>
+  <span id="statusDot" class="status-dot"></span>
+  <span id="statusProvider">未配置服务商</span>
+  <span class="sep">|</span>
+  <span id="moduleCount">模块 0/0</span>
+  <span class="sep">|</span>
+  <span class="status-version" id="appVersion">v2.0.0</span>
 </footer>
 
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="print" onload="this.media='all'">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
-<script src="https://unpkg.com/dexie@3.2.6/dist/dexie.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-<script type="module" src="src/app.js"></script>
+<noscript>
+  <div style="padding:40px;text-align:center;font-family:system-ui">本应用需要启用 JavaScript 才能运行。</div>
+</noscript>
+
+<script src="./vendor/dexie.min.js"></script>
+<script src="./vendor/sortable.min.js"></script>
+<script src="./vendor/highlight.min.js"></script>
+<script type="module" src="./src/app.js"></script>
 </body>
 </html>

@@ -141,7 +141,7 @@
     // ==================== 配置区域 ====================
     const CONFIG = {
         // 可选：添加额外的匹配关键词,比如'voiceDB'
-        CUSTOM_KEYWORDS: [],
+        CUSTOM_KEYWORDS: ['aibrowser', 'AIBrowser'],
         // 是否显示跳过的项目（调试用）
         SHOW_SKIPPED: true,
         // 严格模式：false = 更激进的匹配（推荐）
@@ -154,7 +154,7 @@
     const URL_INFO = new URL(location.href);
     const CURRENT_PATH = URL_INFO.pathname;
     const PATH_SEGMENTS = CURRENT_PATH.split('/').filter(s => s);
-    const PWA_NAME = PATH_SEGMENTS[0] || 'unknown';
+    const PWA_NAME = PATH_SEGMENTS[0] || 'aibrowser';
     const CURRENT_DIR = '/' + PATH_SEGMENTS.slice(0, -1).join('/') + '/';
     const FULL_URL_PREFIX = URL_INFO.origin + CURRENT_DIR;  // https://unplage.github.io/kmword/
 
@@ -225,6 +225,11 @@
         
         // 检查是否包含 PWA 名称（最基本匹配）
         if (lowerText.includes(PWA_NAME.toLowerCase())) {
+            return true;
+        }
+
+        // 本项目专有前缀：Service Worker 缓存名 aibrowser-*-vN
+        if (lowerText.startsWith('aibrowser-') || lowerText.includes('aibrowser-')) {
             return true;
         }
         
@@ -306,6 +311,7 @@
             } catch (e) {
                 // 尝试删除已知数据库
                 const knownDBs = [
+                    'AIBrowser',
                     'WordLearnerDB',
                     PWA_NAME + 'DB',
                     PWA_NAME

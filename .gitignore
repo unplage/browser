@@ -1,4 +1,6 @@
 node_modules/
 .playwright/
-run-test.cjs
 test-results/
+.playwright-cache/
+*.log
+.DS_Store

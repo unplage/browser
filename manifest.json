@@ -1,23 +1,45 @@
 {
-    "name": "AI Browser - GLM-4.7-Flash",
-    "short_name": "AI Browser",
-    "description": "基于 GLM-4.7-Flash 的 AI 浏览器 PWA，集成搜索聚合、多模块对话、书签管理、文件分析",
-    "start_url": "./",
-    "display": "standalone",
-    "background_color": "#f5f5f5",
-    "theme_color": "#4CAF50",
-    "orientation": "any",
-    "scope": "./",
-    "icons": [
-        {
-            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect fill='%234CAF50' width='192' height='192' rx='20'/%3E%3Ctext x='96' y='120' font-size='80' text-anchor='middle' fill='white'%3EAI%3C/text%3E%3C/svg%3E",
-            "sizes": "192x192",
-            "type": "image/svg+xml"
-        },
-        {
-            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect fill='%234CAF50' width='512' height='512' rx='40'/%3E%3Ctext x='256' y='320' font-size='200' text-anchor='middle' fill='white'%3EAI%3C/text%3E%3C/svg%3E",
-            "sizes": "512x512",
-            "type": "image/svg+xml"
-        }
-    ]
+  "name": "AI Browser · 多模型知识库 Agent",
+  "short_name": "AI Browser",
+  "description": "多 Provider（OpenAI / Anthropic / Gemini / 智谱 / DeepSeek / 本地模型）、知识库 RAG 与 Agent 工具链的模块化 AI 浏览器 PWA",
+  "id": "/ai-browser",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone"],
+  "background_color": "#f2f4f8",
+  "theme_color": "#4f6ef7",
+  "orientation": "any",
+  "lang": "zh-CN",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities", "education"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "./icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "知识库",
+      "short_name": "知识库",
+      "description": "打开知识库管理",
+      "url": "./?action=knowledge",
+      "icons": [{ "src": "./icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
 }

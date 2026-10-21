@@ -1,123 +1,166 @@
-# AI Browser (Multi-Provider PWA)
+# AI Browser (Multi-Provider · RAG · Agent PWA)
 
 ## Quick start
 
 ```bash
 python3 -m http.server 8080
-# Open http://localhost:8080 → ⚙️ → configure API Key(s) in Provider settings
+# Open http://localhost:8080 → ⚙️ → configure an API Key in the provider panel
 ```
 
-No build step. Pure HTML/CSS/JS — ES modules on the client, all dependencies loaded via CDN (Dexie.js 3.2.6, SortableJS 1.15.0, highlight.js 11.9.0). No bundler, no npm for the app itself (npm is only for Playwright tests).
+No build step. Pure HTML/CSS/JS — ES modules on the client. **All third-party deps are vendored in `vendor/`** (Dexie 3.2.6, SortableJS 1.15.0, highlight.js 11.9.0 + themes) — no CDN, fully offline-capable.
 
 ## Commands
 
 | Action | How |
 |--------|-----|
 | Dev server | `python3 -m http.server 8080` |
-| Test | Start dev server first, then `npm install && npx playwright install firefox && node run-test.cjs` |
-| Deploy | Push to GitHub Pages root (`master` branch, any domain works) |
+| Unit tests | `npm test` (node:test, 62 cases) |
+| E2E tests | start server first, then `npm run test:e2e` (Playwright + Firefox, 39 cases)) |
+| Deploy | Push to GitHub Pages root (`master` branch) |
 
 ## Architecture
 
-- `/index.html` — app shell, CDN deps, CSP, PWA meta. **Entrypoint** for the app.
-- `src/app.js` — coordinator: init (check IndexedDB → load modules → apply theme/font → render → register SW → update CSP → bind events)
-- `src/ui.js` — all DOM rendering (sidebar/grid/chat/modals/bookmarks/files/settings/provider-cards)
-- `src/db.js` — Dexie wrapper with 8 tables: `modules`, `layout`, `bookmarks`, `searchResults`, `chatHistory`, `files`, `settings`, `presets`
-- `src/api.js` — multi-Provider API wrapper (dynamic param negotiation, streaming SSE, web_search, file analysis, image multi-modal). 3 built-in presets: Zhipu / DeepSeek / OpenAI.
-- `src/modules.js` — 13 default modules + custom module CRUD (each module stores `providerId` + `model`)
-- `src/styles.css` — glassmorphism UI with CSS variables, light/dark/system themes, `--font-size` variable
+```
+src/
+├── app.js          # coordinator: init, state machine, event binding
+├── db.js           # Dexie wrapper, 15 tables (v4), backup import/export
+├── modules.js      # 14 default modules + custom module CRUD
+├── core/
+│   ├── engine.js   # conversation engine: LLM + RAG + Agent + context budget
+│   ├── markdown.js # safe GFM renderer
+│   ├── tokens.js   # token estimation + context compression/summarization
+│   └── utils.js    # shared helpers
+├── llm/
+│   ├── index.js    # chat / streamChat / embed / listModels / testProvider
+│   ├── protocols.js# openai | anthropic | gemini adapters
+│   ├── params.js   # per-model param negotiation
+│   ├── catalog.js  # known model capability table
+│   ├── providers.js# provider presets + CRUD
+│   ├── search.js   # web search backend dispatch
+│   └── errors.js   # error normalization + retry/backoff
+├── rag/            # chunk / bm25 / embed / vector / retrieve / ingest
+├── agent/          # runtime (tool loop) / tools / webfetch / calc
+└── ui/             # dom / modal / toast / grid / chat / search /
+                    # settings / knowledge / sessions / bookmarks /
+                    # module-editor / markdown-view
+```
 
-State machine lives in `app.js` (`state` object). Callback flow: ui → app → api/db → ui.
+Callback flow: `ui → app → llm|rag|agent|db → ui`.
+State machine lives in `app.js` (`state` object).
 
-## Test quirks
+## Multi-protocol LLM layer
 
-- Playwright with **Firefox only** (not Chromium).
-- `run-test.cjs` and `package-lock.json` are `.gitignore`'d — they exist locally but are **not committed**.
-- 17 test cases — DOM rendering, IndexedDB table count, modal open/close. No API key required.
-- Dev server must be running at `localhost:8080` before running tests.
+Three protocol adapters in `src/llm/protocols.js`:
 
-## API (`src/api.js`) — Multi-Provider Architecture
+| Protocol | Endpoint | Auth | Notes |
+|----------|----------|------|-------|
+| `openai` | `{base}/chat/completions` | `Authorization: Bearer` | Covers Zhipu / DeepSeek / OpenAI / Kimi / Qwen / Groq / Ollama / LM Studio / any OpenAI-compatible API |
+| `anthropic` | `{base}/messages` | `x-api-key` | system is top-level; tool results as `tool_result` blocks |
+| `gemini` | `{base}/models/{model}:generateContent` | `x-goog-api-key` | `generationConfig`; tool results as `functionResponse` parts |
 
-3 built-in provider presets, stored in `DEFAULT_PROVIDERS`:
+Unified streaming events: `text` / `reasoning` / `tool_call` / `tool_call_delta` / `usage` / `done` / `error`.
 
-| Provider | ID | Default model | Models |
-|----------|----|---------------|--------|
-| 智谱 GLM | `zhipu` | `glm-4.7-flash` | `glm-4.7-flash`, `glm-4.6v-flash` |
-| DeepSeek | `deepseek` | `deepseek-v4-flash` | `deepseek-v4-flash`, `deepseek-v4-pro` |
-| OpenAI | `openai` | `gpt-4o` | `gpt-4o`, `gpt-4o-mini`, `gpt-4.1`, `gpt-4.1-mini`, `gpt-4.1-nano`, `o3`, `o4-mini` |
+### Model capability catalog (`src/llm/catalog.js`)
 
-Providers stored in `db.settings` key `providers` as JSON array. Old `apiKey`/`apiBase`/`defaultModel`/`temperature`/`topP`/`doSample` settings auto-migrate to `zhipu` provider on first load.
+Per-model: `context`, `maxOutput`, `vision`, `tools`, `reasoning`, `paramStyle`, `thinkingShape`, `effort[]`.
 
-### Param negotiation (`buildRequestBody()`)
+`paramStyle`:
+- `standard` → `max_tokens`
+- `openai-reasoning` → `max_completion_tokens` (o1/o3/o4-mini/gpt-5), drops `temperature`/`top_p`/penalties
+- `anthropic` → `max_tokens` + `thinking.budget_tokens`
+- `gemini` → `generationConfig.maxOutputTokens`
 
-Each provider declares supported params in its `params` map. `buildRequestBody()` only sends params that the provider supports, with values from: opts arg → stored user override → default.
+`thinkingShape`:
+- `zhipu` → `{ type: 'enabled' | 'disabled' }` (Zhipu **and** DeepSeek both need the object form)
+- `anthropic` → `{ type: 'enabled', budget_tokens }`
 
-| Param | Zhipu | DeepSeek | OpenAI |
-|-------|-------|----------|--------|
-| `temperature` | ✅ range 0-2 | ✅ range 0-2 | ✅ range 0-2 |
-| `top_p` | ✅ range 0.01-1 | ✅ range 0.01-1 | ✅ range 0.01-1 |
-| `max_tokens` | ✅ number | ✅ number | ✅ number |
-| `thinking` | ✅ `{type: "enabled"}` | ✅ boolean | ❌ |
-| `do_sample` | ✅ boolean | ❌ | ❌ |
-| `reasoning_effort` | ❌ | ✅ select: `high`/`max` | ❌ |
-| `web_search` | ✅ via `tools` | ❌ | ❌ |
+### Param negotiation rules (`src/llm/params.js`)
 
-- **Auth**: Bearer token per provider (API key stored in IndexedDB settings, no env var)
-- **Streaming**: SSE via `response.body.getReader()`
-- **Web search**: Zhipu-only via `tools: [{type: 'web_search', ...}]`
-- **Image support**: When model name contains `'v'` (e.g. `glm-4.6v-flash`), last user message content becomes a multi-modal array with `image_url` + text
-- **Rate limit**: Depends on provider's free tier
+1. Only params the provider declares as `supported` are sent.
+2. `max_tokens` is **clamped to the model's real max output** (e.g. `glm-4.6v-flash` → 32768).
+3. Reasoning models switch to `max_completion_tokens` and ignore illegal sampling params.
+4. `reasoning_effort` is only sent when the model supports it and the value is legal.
+5. `thinking` is shaped per protocol; omitted entirely for models without reasoning.
 
-## CSP constraints (`index.html` line 8)
+## RAG pipeline
 
-- `connect-src` is **dynamically updated** by `app.js` `updateCSP()` at init and on settings save — collects all provider API base hosts + `open.bigmodel.cn`. No manual CSP edit needed when adding providers.
-- `img-src: 'self' data: https://www.google.com` — favicons come from `google.com/s2/favicons`
-- `script-src: 'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com`
+1. **Ingest** (`rag/ingest.js`): upload file / fetch URL / paste text → clean → store document
+2. **Chunk** (`rag/chunk.js`): heading-aware, target 400 tokens, max 700, overlap 60, sentence splitting for oversized blocks
+3. **Index**:
+   - lexical: BM25 (`rag/bm25.js`) with CJK unigram+bigram tokenization and a small stopword list
+   - vector: optional Embedding, stored int8-quantized (`rag/vector.js`) — ~4× smaller than float32
+4. **Retrieve** (`rag/retrieve.js`): BM25 + vector → RRF fusion (k=60) → Top-K
+5. **Ground** (`core/engine.js`): chunks injected as `[S1]`, `[S2]` … with a prompt that forbids fabrication and requires citation markers
+6. **Degrade**: no Embedding configured → pure BM25, everything else unchanged
 
-## Service Worker (`sw.js`)
+Sources are de-duplicated and rendered as a clickable list; clicking a `[S1]` badge scrolls to the source.
 
-Dynamic `BASE_PATH` computed from SW URL (supports sub-path deployment). Cache version suffix is `v20` (line 9). Navigation (HTML): **network-first** → fallback to cache. Static resources (js/css/png/etc): **cache-first**. **Bump the `v20` suffix on any static asset change** to force re-cache.
+## Agent runtime
 
-## Keyboard shortcuts
+`src/agent/runtime.js` — loop: model → (tool calls) → execute → feed back → model → … until answer or budget exhausted.
 
-| Key | Action |
-|-----|--------|
-| Ctrl+Enter | Send message |
-| Escape | Close modal / Abort streaming |
-| Ctrl+K | Focus search input |
-| Ctrl+N | Focus chat input |
+- Native function calling for openai / anthropic / gemini
+- Text fallback protocol for models without native tools:
+  ```` ```tool {"name":"...","arguments":{...}} ``` ````
+- Built-in tools: `knowledge_search`, `knowledge_list`, `web_search`, `web_fetch`, `calculator`, `current_time`, `search_history`
+- Limits: `maxSteps` (default 6), `maxToolCalls` (default 12)
+- Every call is recorded and rendered as an execution trace in the chat
 
-## Module system
+## Context management
 
-13 default modules (ids: `poetry`, `drug`, `english`, `reading`, `programming`, `leisure`, `baby`, `philosophy`, `tech`, `news`, `finance`, `futures`, `vision`). The `vision` module uses `glm-4.6v-flash` model. Custom modules use `custom_N` IDs. Default modules cannot be deleted (tracked in `deletedDefaults` setting — "deletion" just hides them). All modules share same ChatPanel — only `systemPrompt`, `providerId`, and `model` differ.
+`core/tokens.js`:
+- `estimateTokens` — CJK ~1.5 chars/token, ASCII ~4 chars/token
+- `compressToBudget` — keeps system + recent turns, summarizes the dropped middle via the configured provider, then hard-truncates if still over budget
 
-## File analysis
+## Database (Dexie v4)
 
-Supported text types: `.txt .md .json .csv .js .py .html .ts .jsx .tsx .css .xml .yaml .yml .log .ini .cfg`. Image files (`image/*`) are supported for vision model analysis. Binary files are not supported.
+| Table | Purpose |
+|-------|---------|
+| `modules` | Module definitions (systemPrompt, providerId, model, group) |
+| `sessions` | Conversation threads per module |
+| `messages` | Individual messages (role, content, reasoning, meta) |
+| `documents` | Knowledge base documents |
+| `chunks` | Document chunks (docId, ord, heading, text) |
+| `vectors` | int8-quantized embeddings (chunkId, model) |
+| `toolRuns` | Agent execution traces |
+| `usage` | Token accounting per session |
+| `bookmarks` | Bookmarks (url, title, tags, folder) |
+| `searchResults` | Saved search reports |
+| `files` | Legacy upload records |
+| `settings` | Key-value store (providers, theme, RAG/agent config) |
+| `presets` | Module templates |
+| `layout` | Reserved |
+| `chatHistory` | Legacy (migrated to sessions/messages on v4 upgrade) |
 
-## Font size
+Backup export/import covers all tables; API keys are masked on import by default.
 
-Global font size adjustable via Settings → 字体大小 slider (10–24px). Stored in `db.settings` key `fontSize`. Applied via `--font-size` CSS custom property on `<html>`.
+## PWA
 
-## IndexedDB (Dexie) — schema migrations
-
-| Version | Changes |
-|---------|---------|
-| v1 | 7 tables: `modules`, `layout`, `bookmarks`, `searchResults`, `chatHistory`, `files`, `settings` |
-| v2 | Added `presets` table |
-| v3 | Added `folder` index to `bookmarks` |
-
-Tables: `modules(id, title, enabled, position)`, `layout(id)`, `bookmarks(++id, url, title, tags, folder, createdAt)`, `searchResults(++id, query, savedAt)`, `chatHistory(++id, moduleId, createdAt)`, `files(++id, fileName, fileType, createdAt)`, `settings(key)`, `presets(++id, createdAt)`.
-
-Data can be exported/imported via Settings panel (JSON backup covering modules, bookmarks, settings, search results, chat history, files).
+- `manifest.json` — real PNG icons (192 / 512 / maskable), `standalone`, shortcuts
+- `sw.js` — version suffix `v3` (**bump it on any static asset change**)
+  - install: precache app shell + every local ES module + vendored deps
+  - navigate: network-first → cache fallback
+  - static: cache-first with background revalidate
+- CSP (`index.html`): `script-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'`; `connect-src 'self' https: http://localhost:* http://127.0.0.1:*`
 
 ## Coding conventions
 
 - Vanilla JS with ES modules, no classes, no `this` binding
-- `export function` only, callback flow: ui → app → api/db → ui
-- Markdown rendered client-side with simple regex (`renderMarkdown` in `ui.js` — no link/table support)
+- `export function` only, callback flow: ui → app → llm/rag/agent/db → ui
+- Markdown rendered client-side by `core/markdown.js` (escape-first, allowlist)
 - No comments beyond section headers
 - UI labels, system prompts, and code comments are primarily Chinese
-- Theme system via CSS `[data-theme="dark"]` attribute; themes: light, dark, system
-- `$()` helper = `document.getElementById`; use `element.querySelector()` when element is not yet in DOM
+- Theme via CSS `[data-theme="dark"]`; themes: light, dark, system
+- `$()` helper = `document.getElementById`, accepts `'id'` or `'#id'`
 - Event binding on form elements before `showModal()` must use `form.querySelector()`, not `$()`
+
+## Gotchas (fixed in v2 — keep them fixed)
+
+- **Never send `max_tokens` blindly** — clamp to the model's `maxOutput`; reasoning models need `max_completion_tokens`
+- **`thinking` is an object** for Zhipu/DeepSeek (`{type:'enabled'}`), not a boolean
+- **Never let inline-code rules run before code-block rules** in the Markdown renderer — it eats the fence
+- **Do not use `media="print" + onload=` for lazy CSS** — CSP `script-src-attr` blocks the inline handler and the stylesheet never applies
+- **Do not let `innerHTML` overwrite a bubble that contains action buttons** — it destroys them
+- **Sortable instances must be destroyed before re-creating** on the same element
+- **Never put the sidebar collapse toggle inside the sidebar** — it slides out of reach when collapsed
+- **Do not rely on a single global modal** — use the modal stack in `ui/modal.js`
